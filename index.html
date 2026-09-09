@@ -406,62 +406,68 @@ drugDatabase.forEach(d => {
 // SPEECH RECOGNITION (ใช้ร่วมกันทั้ง 2 ฟังก์ชันที่ต้องอัดเสียง)
 // =====================================================
 const SpeechRecognitionAPI = window.SpeechRecognition || window.webkitSpeechRecognition;
- 
+
 let recognition;
 let isListening = false;
- 
+let micStream = null;
+let mediaRecorder = null;
+let speechFailed = false;
+
 let activeFinalText = "";
 let activeTranscriptId = null;
 let activeStatusId = null;
-let userRequestedStop = true; // true = ผู้ใช้ตั้งใจหยุด, false = กำลังฟังต่อเนื่องตามflow
-  let manualStopRequested = false; // true เฉพาะเมื่อกดปุ่ม "หยุดบันทึก"
- 
-if (!SpeechRecognitionAPI) {
-  alert("Browser นี้ไม่รองรับ Speech Recognition\nกรุณาใช้ Google Chrome");
-} else {
+let userRequestedStop = true;
+let manualStopRequested = false;
+
+if (SpeechRecognitionAPI) {
   recognition = new SpeechRecognitionAPI();
   recognition.lang = "th-TH";
   recognition.continuous = true;
   recognition.interimResults = true;
   recognition.maxAlternatives = 1;
- 
+
   recognition.onstart = function () {
     isListening = true;
-    if (activeStatusId) document.getElementById(activeStatusId).innerText = "🎙️ กำลังฟัง...";
+    speechFailed = false;
+    if (activeStatusId) {
+      const el = document.getElementById(activeStatusId);
+      if (el) el.innerText = "🎙️ กำลังฟังและถอดเสียงภาษาไทย...";
+    }
   };
- 
+
   recognition.onresult = function (event) {
     let interimText = "";
     for (let i = event.resultIndex; i < event.results.length; i++) {
       const text = event.results[i][0].transcript;
-      if (event.results[i].isFinal) {
-        activeFinalText += text + " ";
-      } else {
-        interimText += text;
-      }
+      if (event.results[i].isFinal) activeFinalText += text + " ";
+      else interimText += text;
     }
     if (activeTranscriptId) {
-      document.getElementById(activeTranscriptId).innerText = activeFinalText + interimText;
+      const el = document.getElementById(activeTranscriptId);
+      if (el) el.innerText = (activeFinalText + interimText).trim() || "กำลังฟัง...";
     }
   };
- 
+
   recognition.onerror = function (event) {
     console.error("Speech error:", event.error);
+    if (event.error === "service-not-allowed" || event.error === "not-allowed") {
+      speechFailed = true;
+      const el = activeStatusId ? document.getElementById(activeStatusId) : null;
+      if (el) el.innerText = "🎙️ ไมโครโฟนเปิดแล้ว แต่บริการถอดเสียงของ Browser ไม่พร้อม — แนะนำ Google Chrome";
+      // สำคัญ: ไม่ปิด micStream เพราะยังต้องการให้ไมค์ทำงานจริง
+      return;
+    }
     const el = activeStatusId ? document.getElementById(activeStatusId) : null;
-    if (!el) return;
-
-    const messages = {
-      "not-allowed": "⚠️ เบราว์เซอร์ไม่อนุญาตให้ใช้ไมโครโฟน — ตรวจสอบสิทธิ์ Microphone ของเว็บไซต์",
-      "service-not-allowed": "⚠️ เบราว์เซอร์ไม่อนุญาตบริการถอดเสียง — แนะนำให้เปิดด้วย Google Chrome บนคอมพิวเตอร์",
-      "audio-capture": "⚠️ ไม่พบไมโครโฟนหรือไม่สามารถเข้าถึงไมโครโฟนได้",
-      "network": "⚠️ เชื่อมต่อบริการถอดเสียงไม่ได้ — ตรวจสอบอินเทอร์เน็ต",
-      "aborted": "⏹ การบันทึกถูกหยุดแล้ว"
-    };
-    el.innerText = messages[event.error] || "⚠️ Speech error: " + event.error;
+    if (el) {
+      const messages = {
+        "audio-capture": "⚠️ ไม่พบไมโครโฟนหรือไม่สามารถเข้าถึงไมโครโฟนได้",
+        "network": "⚠️ เชื่อมต่อบริการถอดเสียงไม่ได้ — ตรวจสอบอินเทอร์เน็ต",
+        "aborted": "⏹ การบันทึกถูกหยุดแล้ว"
+      };
+      el.innerText = messages[event.error] || "⚠️ Speech error: " + event.error;
+    }
   };
- 
-  // บาง browser จะตัดการฟังเองเมื่อเงียบไปสักพัก ทั้งที่ผู้ใช้ยังไม่ได้กดหยุด
-  // ถ้ายังไม่ได้ตั้งใจหยุด ให้เริ่มฟังต่อทันทีเพื่อให้ฟังได้ต่อเนื่องตลอดการซักประวัติ/ให้คำแนะนำ
+
   recognition.onend = function () {
     isListening = false;
 
@@ -471,68 +477,119 @@ if (!SpeechRecognitionAPI) {
       return;
     }
 
-    if (!userRequestedStop) {
-      try { recognition.start(); } catch (err) { /* ignore ถ้า start ซ้ำเร็วเกินไป */ }
-    } else {
-      if (activeStatusId) document.getElementById(activeStatusId).innerText = "⏹ หยุดฟังแล้ว";
+    // ถ้า Speech Recognition หลุดเอง ให้ลองต่อเฉพาะกรณีที่ไม่ได้เกิด service/not-allowed
+    if (!userRequestedStop && !speechFailed && micStream && micStream.active) {
+      setTimeout(() => {
+        if (!userRequestedStop && !isListening && !speechFailed) {
+          try { recognition.start(); } catch (err) {}
+        }
+      }, 300);
     }
   };
+} else {
+  console.warn("Speech Recognition API not supported in this browser");
 }
- 
+
 async function startRecording(transcriptId, statusId) {
   const statusEl = document.getElementById(statusId);
   const transcriptEl = document.getElementById(transcriptId);
 
-  if (!recognition) {
-    if (statusEl) statusEl.innerText = "⚠️ เบราว์เซอร์นี้ไม่รองรับการถอดเสียงภาษาไทย กรุณาใช้ Google Chrome";
-    return;
-  }
-
-  // ขอสิทธิ์ไมโครโฟนก่อนเริ่ม Speech Recognition
-  // ช่วยแก้กรณี browser ยังไม่ได้อนุญาต microphone โดยเฉพาะบน iPad/iPhone
-  try {
-    if (!navigator.mediaDevices || !navigator.mediaDevices.getUserMedia) {
-      throw new Error("getUserMedia-not-supported");
-    }
-
-    const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
-    stream.getTracks().forEach(track => track.stop());
-  } catch (err) {
-    console.error("Microphone permission error:", err);
-    if (statusEl) {
-      statusEl.innerText = "⚠️ ไม่สามารถเปิดไมโครโฟนได้ — กรุณาอนุญาต Microphone ให้เว็บไซต์นี้";
-    }
-    return;
-  }
-
-  activeFinalText = "";
   activeTranscriptId = transcriptId;
   activeStatusId = statusId;
+  activeFinalText = "";
   userRequestedStop = false;
   manualStopRequested = false;
+  speechFailed = false;
 
-  if (transcriptEl) transcriptEl.innerText = "กำลังเปิดไมโครโฟน...";
-  if (statusEl) statusEl.innerText = "🎙️ กำลังเปิดไมโครโฟน...";
+  if (isListening || (micStream && micStream.active)) {
+    if (statusEl) statusEl.innerText = "🎙️ กำลังบันทึกอยู่แล้ว";
+    return;
+  }
+
+  if (!window.isSecureContext) {
+    if (statusEl) statusEl.innerText = "⚠️ ต้องเปิดเว็บไซต์ผ่าน HTTPS เพื่อใช้ไมโครโฟน";
+    return;
+  }
+
+  if (!navigator.mediaDevices || !navigator.mediaDevices.getUserMedia) {
+    if (statusEl) statusEl.innerText = "⚠️ Browser นี้ไม่รองรับการเปิดไมโครโฟนผ่านเว็บ";
+    return;
+  }
+
+  if (transcriptEl) transcriptEl.innerText = "กำลังขอสิทธิ์ไมโครโฟน...";
+  if (statusEl) statusEl.innerText = "🎙️ กำลังขอสิทธิ์ไมโครโฟน...";
 
   try {
-    if (isListening) {
-      if (statusEl) statusEl.innerText = "🎙️ กำลังฟังอยู่แล้ว";
-      return;
+    // เปิดไมค์จริงก่อน ไม่ผูกการเปิดไมค์กับ Speech Recognition
+    micStream = await navigator.mediaDevices.getUserMedia({
+      audio: {
+        echoCancellation: true,
+        noiseSuppression: true,
+        autoGainControl: true
+      }
+    });
+
+    // ใช้ MediaRecorder เป็นตัวตรวจยืนยันว่า mic เปิดและรับเสียงจริง
+    if (window.MediaRecorder) {
+      try {
+        mediaRecorder = new MediaRecorder(micStream);
+        mediaRecorder.start();
+      } catch (e) {
+        console.warn("MediaRecorder could not start:", e);
+      }
     }
-    recognition.start();
+
+    if (transcriptEl) transcriptEl.innerText = "🎙️ ไมโครโฟนเปิดแล้ว กำลังฟัง...";
+    if (statusEl) statusEl.innerText = "🎙️ ไมโครโฟนเปิดแล้ว กำลังเริ่มถอดเสียง...";
+
+    // ค่อยเริ่ม Speech Recognition หลังจากได้ mic permission แล้ว
+    if (recognition) {
+      try {
+        recognition.start();
+      } catch (err) {
+        console.warn("SpeechRecognition start error:", err);
+        speechFailed = true;
+        if (statusEl) statusEl.innerText = "🎙️ ไมโครโฟนเปิดแล้ว แต่เริ่มถอดเสียงไม่ได้ — ลอง Google Chrome";
+      }
+    } else {
+      speechFailed = true;
+      if (statusEl) statusEl.innerText = "🎙️ ไมโครโฟนเปิดแล้ว แต่ Browser นี้ไม่มี Speech Recognition";
+    }
+
   } catch (err) {
-    console.error("SpeechRecognition start error:", err);
-    if (statusEl) statusEl.innerText = "⚠️ ไม่สามารถเริ่มระบบถอดเสียงได้ — ลองกด Start อีกครั้ง";
+    console.error("Microphone permission error:", err);
+    let msg = "⚠️ ไม่สามารถเปิดไมโครโฟนได้";
+    if (err.name === "NotAllowedError" || err.name === "PermissionDeniedError") {
+      msg = "⚠️ ไม่อนุญาตให้ใช้ไมโครโฟน — กรุณาเปิดสิทธิ์ Microphone ให้เว็บไซต์นี้";
+    } else if (err.name === "NotFoundError") {
+      msg = "⚠️ ไม่พบไมโครโฟนของอุปกรณ์";
+    }
+    if (statusEl) statusEl.innerText = msg;
+    micStream = null;
   }
 }
- 
+
 function stopRecording() {
-  if (!recognition) return;
   userRequestedStop = true;
   manualStopRequested = true;
-  if (isListening) {
-    recognition.stop();
-  } else {
+
+  if (recognition && isListening) {
+    try { recognition.stop(); } catch (err) {}
+  }
+
+  if (mediaRecorder && mediaRecorder.state !== "inactive") {
+    try { mediaRecorder.stop(); } catch (err) {}
+  }
+
+  if (micStream) {
+    micStream.getTracks().forEach(track => track.stop());
+    micStream = null;
+  }
+
+  isListening = false;
+
+  // ถ้า Speech Recognition ไม่ได้ทำงาน onend อาจไม่ถูกเรียก
+  if (!recognition || speechFailed) {
     manualStopRequested = false;
     finalizeStoppedRecording();
   }
