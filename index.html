@@ -447,7 +447,17 @@ if (!SpeechRecognitionAPI) {
  
   recognition.onerror = function (event) {
     console.error("Speech error:", event.error);
-    if (activeStatusId) document.getElementById(activeStatusId).innerText = "⚠️ Speech error: " + event.error;
+    const el = activeStatusId ? document.getElementById(activeStatusId) : null;
+    if (!el) return;
+
+    const messages = {
+      "not-allowed": "⚠️ เบราว์เซอร์ไม่อนุญาตให้ใช้ไมโครโฟน — ตรวจสอบสิทธิ์ Microphone ของเว็บไซต์",
+      "service-not-allowed": "⚠️ เบราว์เซอร์ไม่อนุญาตบริการถอดเสียง — แนะนำให้เปิดด้วย Google Chrome บนคอมพิวเตอร์",
+      "audio-capture": "⚠️ ไม่พบไมโครโฟนหรือไม่สามารถเข้าถึงไมโครโฟนได้",
+      "network": "⚠️ เชื่อมต่อบริการถอดเสียงไม่ได้ — ตรวจสอบอินเทอร์เน็ต",
+      "aborted": "⏹ การบันทึกถูกหยุดแล้ว"
+    };
+    el.innerText = messages[event.error] || "⚠️ Speech error: " + event.error;
   };
  
   // บาง browser จะตัดการฟังเองเมื่อเงียบไปสักพัก ทั้งที่ผู้ใช้ยังไม่ได้กดหยุด
@@ -469,15 +479,51 @@ if (!SpeechRecognitionAPI) {
   };
 }
  
-function startRecording(transcriptId, statusId) {
-  if (!recognition) return;
+async function startRecording(transcriptId, statusId) {
+  const statusEl = document.getElementById(statusId);
+  const transcriptEl = document.getElementById(transcriptId);
+
+  if (!recognition) {
+    if (statusEl) statusEl.innerText = "⚠️ เบราว์เซอร์นี้ไม่รองรับการถอดเสียงภาษาไทย กรุณาใช้ Google Chrome";
+    return;
+  }
+
+  // ขอสิทธิ์ไมโครโฟนก่อนเริ่ม Speech Recognition
+  // ช่วยแก้กรณี browser ยังไม่ได้อนุญาต microphone โดยเฉพาะบน iPad/iPhone
+  try {
+    if (!navigator.mediaDevices || !navigator.mediaDevices.getUserMedia) {
+      throw new Error("getUserMedia-not-supported");
+    }
+
+    const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
+    stream.getTracks().forEach(track => track.stop());
+  } catch (err) {
+    console.error("Microphone permission error:", err);
+    if (statusEl) {
+      statusEl.innerText = "⚠️ ไม่สามารถเปิดไมโครโฟนได้ — กรุณาอนุญาต Microphone ให้เว็บไซต์นี้";
+    }
+    return;
+  }
+
   activeFinalText = "";
   activeTranscriptId = transcriptId;
   activeStatusId = statusId;
   userRequestedStop = false;
   manualStopRequested = false;
-  document.getElementById(transcriptId).innerText = "กำลังฟัง...";
-  recognition.start();
+
+  if (transcriptEl) transcriptEl.innerText = "กำลังเปิดไมโครโฟน...";
+  if (statusEl) statusEl.innerText = "🎙️ กำลังเปิดไมโครโฟน...";
+
+  try {
+    if (isListening) {
+      if (statusEl) statusEl.innerText = "🎙️ กำลังฟังอยู่แล้ว";
+      return;
+    }
+    recognition.start();
+  } catch (err) {
+    console.error("SpeechRecognition start error:", err);
+    if (statusEl) statusEl.innerText = "⚠️ ไม่สามารถเริ่มระบบถอดเสียงได้ — ลองกด Start อีกครั้ง";
+  }
 }
  
 function stopRecording() {
