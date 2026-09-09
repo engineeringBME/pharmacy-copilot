@@ -3,349 +3,118 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>Pharma Copilot</title>
- 
+<title>ระบบประเมินการซักประวัติและให้คำแนะนำยา (Pharmacy Consultation Assistant)</title>
+<script src="https://cdn.tailwindcss.com"></script>
+<link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+<link href="https://fonts.googleapis.com/css2?family=Sarabun:wght@300;400;500;600;700&display=swap" rel="stylesheet">
 <style>
-  * { box-sizing: border-box; }
- 
-  body {
-    font-family: Arial, sans-serif;
-    background: #f5f3ff;
-    margin: 0;
-    padding: 30px;
-  }
- 
-  .container {
-    max-width: 900px;
-    margin: auto;
-    background: white;
-    padding: 30px;
-    border-radius: 20px;
-    box-shadow: 0 5px 20px rgba(0,0,0,0.1);
-  }
- 
-  h1 { text-align: center; margin-top: 0; }
-  h2 { margin-top: 30px; }
- 
-  p.subtitle { text-align: center; color: #666; margin-top: -10px; }
- 
-  /* ---------- Views ---------- */
-  .view { display: none; }
-  .view.active { display: block; }
- 
-  /* ---------- Home menu ---------- */
-  .menu-grid {
-    display: grid;
-    grid-template-columns: 1fr;
-    gap: 16px;
-    margin-top: 30px;
-  }
- 
-  .menu-card {
-    display: flex;
-    align-items: center;
-    gap: 16px;
-    padding: 20px;
-    border-radius: 14px;
-    background: #f1f2f6;
-    border: 2px solid transparent;
-    cursor: pointer;
-    text-align: left;
-    transition: 0.15s;
-  }
- 
-  .menu-card:hover {
-    border-color: #6c5ce7;
-    background: #eee6ff;
-  }
- 
-  .menu-card .icon { font-size: 32px; }
-  .menu-card .title { font-size: 18px; font-weight: bold; }
-  .menu-card .desc { font-size: 14px; color: #666; }
- 
-  /* ---------- Buttons ---------- */
-  button {
-    padding: 12px 20px;
-    border: none;
-    border-radius: 10px;
-    cursor: pointer;
-    margin: 5px 5px 5px 0;
-    font-size: 15px;
-  }
- 
-  .btn-record   { background: #6c5ce7; color: white; }
-  .btn-stop     { background: #d63031; color: white; }
-  .btn-primary  { background: #0984e3; color: white; }
-  .btn-back     { background: #b2bec3; color: white; }
-  .btn-refresh  { background: #00b894; color: white; }
- 
-  .statusBox {
-    margin-top: 15px;
-    padding: 12px 15px;
-    background: #eee;
-    border-radius: 10px;
-    font-size: 14px;
-  }
- 
-  .transcript {
-    margin-top: 15px;
-    padding: 20px;
-    background: #fafafa;
-    border: 1px solid #ddd;
-    border-radius: 10px;
-    min-height: 100px;
-    white-space: pre-wrap;
-  }
- 
-  .checklist { margin-top: 15px; }
- 
-  .item {
-    padding: 10px;
-    margin: 5px 0;
-    border-radius: 8px;
-    background: #f1f2f6;
-  }
- 
-  .done    { background: #dff9fb; }
-  .missing { background: #ffeaa7; }
- 
-  .score {
-    font-size: 18px;
-    font-weight: bold;
-    margin-top: 15px;
-  }
- 
-  input[type="text"] {
-    width: 100%;
-    padding: 12px;
-    border-radius: 10px;
-    border: 1px solid #ccc;
-    font-size: 16px;
-    margin-top: 10px;
-  }
- 
-  .drug-info {
-    margin-top: 15px;
-    padding: 15px;
-    background: #eaf6ff;
-    border-radius: 10px;
-    display: none;
-  }
- 
-  .drug-info.show { display: block; }
- 
-  table {
-    width: 100%;
-    border-collapse: collapse;
-    margin-top: 15px;
-    font-size: 13px;
-  }
- 
-  th, td {
-    border: 1px solid #ddd;
-    padding: 8px;
-    text-align: left;
-    vertical-align: top;
-  }
- 
-  th { background: #6c5ce7; color: white; }
- 
-  tr:nth-child(even) { background: #f9f9f9; }
- 
-  /* ---------- Modal popup ---------- */
-  .modal-overlay {
-    display: none;
-    position: fixed;
-    top: 0; left: 0; right: 0; bottom: 0;
-    background: rgba(0,0,0,0.5);
-    z-index: 1000;
-    align-items: center;
-    justify-content: center;
-  }
- 
-  .modal-overlay.show { display: flex; }
- 
-  .modal-box {
-    background: white;
-    border-radius: 16px;
-    padding: 25px;
-    max-width: 480px;
-    width: 90%;
-    max-height: 80vh;
-    overflow-y: auto;
-    box-shadow: 0 10px 40px rgba(0,0,0,0.3);
-  }
- 
-  .modal-box h3 { margin-top: 0; }
- 
-  .modal-box ul { padding-left: 20px; margin: 10px 0; }
-  .modal-box li { margin: 6px 0; }
- 
-  .modal-note {
-    font-size: 13px;
-    color: #666;
-    margin-top: 10px;
-  }
+body { font-family: 'Sarabun', sans-serif; }
+.view { display:none; } .view.active { display:block; }
+.modal-overlay { display:none; position:fixed; inset:0; background:rgba(15,23,42,.55); z-index:1000; align-items:center; justify-content:center; }
+.modal-overlay.show { display:flex; }
 </style>
 </head>
- 
-<body>
-<div class="container">
- 
-  <h1>💊 Pharma Copilot</h1>
-  <p class="subtitle">ระบบช่วยตรวจสอบความครบถ้วนในการซักประวัติและให้คำแนะนำยา</p>
- 
-  <!-- ============================================================ -->
-  <!-- VIEW: HOME -->
-  <!-- ============================================================ -->
-  <div id="view-home" class="view active">
-    <div class="menu-grid">
- 
-      <div class="menu-card" onclick="showView('view-history')">
-        <div class="icon">🩺</div>
-        <div>
-          <div class="title">1. ซักประวัติผู้ป่วย</div>
-          <div class="desc">อัดเสียงการซักประวัติ ระบบจะตรวจว่าซักครบตามหัวข้อหรือไม่</div>
+<body class="bg-slate-50 min-h-screen text-slate-800 flex flex-col">
+<header class="bg-indigo-900 text-white shadow-lg sticky top-0 z-50">
+  <div class="max-w-7xl mx-auto px-4 py-3 flex flex-col lg:flex-row justify-between items-center gap-3">
+    <div class="flex items-center space-x-3">
+      <i class="fa-solid fa-user-nurse text-2xl text-emerald-400"></i>
+      <div><h1 class="text-xl font-bold tracking-wide">Pharmacy Consultation Assistant</h1><p class="text-xs text-indigo-200">ระบบช่วยตรวจสอบการซักประวัติและให้คำแนะนำยา</p></div>
+    </div>
+    <nav class="flex flex-wrap justify-center gap-2">
+      <button onclick="switchTab(1)" id="nav-btn-1" class="px-4 py-2 rounded-lg text-sm font-medium transition bg-indigo-700 text-white shadow"><i class="fa-solid fa-clipboard-question mr-1.5"></i>1. ซักประวัติ</button>
+      <button onclick="switchTab(2)" id="nav-btn-2" class="px-4 py-2 rounded-lg text-sm font-medium transition hover:bg-indigo-800 text-indigo-100"><i class="fa-solid fa-capsules mr-1.5"></i>2. คำแนะนำยา</button>
+      <button onclick="switchTab(3)" id="nav-btn-3" class="px-4 py-2 rounded-lg text-sm font-medium transition hover:bg-indigo-800 text-indigo-100"><i class="fa-solid fa-chart-line mr-1.5"></i>Dashboard</button>
+    </nav>
+  </div>
+</header>
+<main class="max-w-7xl mx-auto px-4 py-6 flex-1 w-full">
+
+<section id="view-history" class="view active space-y-6">
+  <div class="flex flex-col md:flex-row justify-between md:items-center gap-3 bg-white p-4 rounded-xl shadow-sm border border-slate-200">
+    <div><h2 class="text-xl font-bold">ขั้นตอนที่ 1: เช็คลิสต์การซักประวัติผู้ป่วย</h2><p class="text-sm text-slate-500">กด Start เพื่อเริ่มบันทึกเสียง และกด Stop เมื่อสัมภาษณ์เสร็จ</p></div>
+    <span id="counter-1" class="text-lg font-bold px-4 py-1.5 bg-indigo-50 text-indigo-700 rounded-full border border-indigo-200">0 / 17</span>
+  </div>
+  <div class="grid grid-cols-1 lg:grid-cols-3 gap-6">
+    <div class="space-y-4">
+      <div class="bg-white p-5 rounded-xl shadow-sm border border-slate-200 space-y-4">
+        <h3 class="font-semibold text-slate-700 border-b pb-2 flex items-center"><i class="fa-solid fa-microphone text-indigo-600 mr-2"></i>ควบคุมการบันทึกเสียง</h3>
+        <div class="grid grid-cols-2 gap-2">
+          <button id="start-btn-1" onclick="history_finalTextReset(); startRecording('history-transcript','history-status');" class="bg-emerald-600 hover:bg-emerald-700 text-white font-medium py-2.5 px-4 rounded-lg shadow transition"><i class="fa-solid fa-play mr-2"></i>Start</button>
+          <button id="stop-btn-1" onclick="stopRecording()" class="bg-amber-500 hover:bg-amber-600 text-white font-medium py-2.5 px-4 rounded-lg shadow transition"><i class="fa-solid fa-stop mr-2"></i>Stop</button>
         </div>
-      </div>
- 
-      <div class="menu-card" onclick="openDrugView()">
-        <div class="icon">💊</div>
-        <div>
-          <div class="title">2. คีย์ชื่อยา / ตรวจการให้คำแนะนำ</div>
-          <div class="desc">พิมพ์ชื่อยา ดูข้อมูลยา แล้วอัดเสียงเพื่อเช็คว่าให้คำแนะนำครบไหม</div>
+        <div class="grid grid-cols-2 gap-2 pt-2 border-t">
+          <button onclick="checkHistoryProgress()" class="bg-indigo-600 hover:bg-indigo-700 text-white font-medium py-2.5 px-4 rounded-lg shadow transition"><i class="fa-solid fa-list-check mr-2"></i>ตรวจสอบ</button>
+          <button id="goToDrugBtn" onclick="openDrugView()" style="display:none" class="bg-slate-800 hover:bg-slate-900 text-white font-medium py-2.5 px-4 rounded-lg shadow transition">Next <i class="fa-solid fa-arrow-right ml-2"></i></button>
         </div>
+        <div id="history-status" class="text-xs text-center py-2 rounded-lg bg-slate-100 text-slate-600 font-medium">พร้อมบันทึกเสียง</div>
       </div>
- 
-      <div class="menu-card" onclick="showView('view-log'); loadLog();">
-        <div class="icon">📚</div>
-        <div>
-          <div class="title">3. ประวัติการซักประวัติของเภสัชกร</div>
-          <div class="desc">ดูสรุปคะแนนและบันทึกย้อนหลังทั้งหมด</div>
+      <div class="bg-white p-5 rounded-xl shadow-sm border border-slate-200 space-y-2">
+        <h3 class="font-semibold text-slate-700 flex items-center justify-between"><span><i class="fa-solid fa-align-left text-indigo-600 mr-2"></i>ข้อความจากการถอดเสียง</span><button onclick="clearTranscript(1)" class="text-xs text-slate-400 hover:text-red-500">ล้างข้อความ</button></h3>
+        <div id="history-transcript" class="w-full h-64 p-3 bg-slate-50 border border-slate-200 rounded-lg text-sm overflow-y-auto leading-relaxed">ข้อความจากการพูดจะแสดงที่นี่...</div>
+      </div>
+    </div>
+    <div class="lg:col-span-2 bg-white p-5 rounded-xl shadow-sm border border-slate-200">
+      <h3 class="font-semibold text-slate-700 mb-4 border-b pb-2 flex items-center justify-between"><span><i class="fa-solid fa-list-check text-indigo-600 mr-2"></i>รายการคำถามซักประวัติ (H01 - H17)</span><span class="text-xs text-slate-400 font-normal">ตรวจสอบได้โดยไม่ต้องหยุดการทำงานของระบบ</span></h3>
+      <div id="historyChecklist" class="space-y-2.5 max-h-[580px] overflow-y-auto pr-1"></div>
+      <div id="historyScore" class="mt-4 text-lg font-bold text-indigo-700">History Score: -</div>
+    </div>
+  </div>
+</section>
+
+<section id="view-drug" class="view space-y-6">
+  <div class="bg-white p-4 rounded-xl shadow-sm border border-slate-200"><h2 class="text-xl font-bold">ขั้นตอนที่ 2: คำแนะนำและคำเตือนการใช้ยา</h2><p class="text-sm text-slate-500">พิมพ์ชื่อยา ระบบจะแสดงข้อมูลยาและ Checklist สำหรับการให้คำแนะนำ</p></div>
+  <div class="grid grid-cols-1 lg:grid-cols-3 gap-6">
+    <div class="space-y-4">
+      <div class="bg-white p-5 rounded-xl shadow-sm border border-slate-200 space-y-3">
+        <h3 class="font-semibold text-slate-700 border-b pb-2"><i class="fa-solid fa-pills text-indigo-600 mr-2"></i>กรอกชื่อยาที่จะจ่าย</h3>
+        <label class="block text-xs text-slate-500">พิมพ์ชื่อยา:</label>
+        <input type="text" id="drugInput" oninput="onDrugInputChange()" placeholder="เช่น Ibuprofen, Amoxicillin..." class="w-full p-2.5 border border-slate-300 rounded-lg text-sm focus:ring-2 focus:ring-indigo-500 focus:outline-none" autocomplete="off">
+        <datalist id="drugList"></datalist>
+        <div id="drugInfoBox" class="hidden bg-indigo-50 border border-indigo-200 rounded-lg p-3 text-sm"><div class="font-bold text-indigo-800" id="drugInfoName"></div><p class="mt-1"><b>ข้อบ่งใช้:</b> <span id="drugInfoIndication"></span></p><p><b>ขนาดยา:</b> <span id="drugInfoDosage"></span></p></div>
+        <div id="drugNotFound" class="hidden text-xs p-3 rounded-lg bg-amber-50 text-amber-700 border border-amber-200">⚠️ ไม่พบยานี้ในฐานข้อมูล</div>
+        <div><div class="text-xs font-semibold text-slate-600 mb-1.5">รายการยาที่เลือกไว้:</div><div id="selectedDrugList" class="space-y-1 min-h-[40px] p-2 bg-slate-50 border border-slate-200 rounded-lg"><span class="text-xs text-slate-400 italic">ยังไม่ได้เลือกรายการยา</span></div></div>
+      </div>
+    </div>
+    <div class="lg:col-span-2 space-y-4">
+      <div id="drugCounselSection" class="hidden bg-white p-5 rounded-xl shadow-sm border border-slate-200">
+        <h3 class="font-semibold text-slate-700 border-b pb-2"><i class="fa-solid fa-microphone text-indigo-600 mr-2"></i>บันทึกเสียงการให้คำแนะนำ</h3>
+        <div class="grid grid-cols-2 md:grid-cols-4 gap-2 mt-4">
+          <button onclick="drug_finalTextReset(); startRecording('drug-transcript','drug-status');" class="bg-emerald-600 hover:bg-emerald-700 text-white font-medium py-2.5 rounded-lg"><i class="fa-solid fa-play mr-1"></i>Start</button>
+          <button onclick="checkDrugProgress()" class="bg-indigo-600 hover:bg-indigo-700 text-white font-medium py-2.5 rounded-lg">ตรวจสอบ</button>
+          <button onclick="stopRecording()" class="bg-amber-500 hover:bg-amber-600 text-white font-medium py-2.5 rounded-lg">Stop</button>
+          <button id="drugNextBtn" onclick="addNextDrug()" style="display:none" class="bg-slate-800 hover:bg-slate-900 text-white font-medium py-2.5 rounded-lg">ยาตัวถัดไป</button>
         </div>
+        <div id="drug-status" class="mt-3 text-xs text-center py-2 rounded-lg bg-slate-100 text-slate-600">พร้อมบันทึกเสียง</div>
+        <div class="mt-4"><h4 class="font-semibold text-slate-700 mb-2">📝 Transcript</h4><div id="drug-transcript" class="w-full h-48 p-3 bg-slate-50 border border-slate-200 rounded-lg text-sm overflow-y-auto">ข้อความจากการพูดจะแสดงที่นี่...</div></div>
+        <div class="mt-4"><h4 class="font-semibold text-slate-700 mb-2">📋 Counseling Checklist</h4><div id="drugChecklist" class="space-y-2"></div><div id="drugScore" class="mt-3 text-lg font-bold text-indigo-700">Counseling Score: -</div></div>
       </div>
- 
-    </div>
-  </div>
- 
-  <!-- ============================================================ -->
-  <!-- VIEW: HISTORY TAKING -->
-  <!-- ============================================================ -->
-  <div id="view-history" class="view">
-    <button class="btn-back" onclick="showView('view-home')">⬅ กลับหน้าแรก</button>
- 
-    <h2>🩺 ซักประวัติผู้ป่วย</h2>
- 
-    <button class="btn-record" onclick="startRecording('history-transcript','history-status'); history_finalTextReset();">🎙️ เริ่มบันทึกเสียง</button>
-    <button class="btn-primary" onclick="checkHistoryProgress()">➡️ NEXT (ตรวจสอบหัวข้อที่ยังขาด)</button>
-    <button class="btn-stop" onclick="stopRecording()">⏹ หยุดบันทึก</button>
- 
-    <div id="history-status" class="statusBox">สถานะ: พร้อมใช้งาน</div>
- 
-    <h3>📝 Transcript</h3>
-    <div id="history-transcript" class="transcript">ยังไม่มีข้อความ</div>
- 
-    <h3>📋 History Checklist</h3>
-    <div id="historyChecklist" class="checklist"></div>
-    <div class="score" id="historyScore">History Score: -</div>
- 
-    <div style="margin-top:20px; padding:15px; background:#f1f2f6; border-radius:10px;">
-      เมื่อซักประวัติครบแล้ว ระบบจะเก็บข้อมูลไว้ใน Session ของผู้ป่วยคนนี้
-      จากนั้นสามารถไปคีย์ยาและให้คำแนะนำยาได้
-    </div>
-  </div>
- 
-  <!-- ============================================================ -->
-  <!-- VIEW: DRUG COUNSELING -->
-  <!-- ============================================================ -->
-  <div id="view-drug" class="view">
-    <button class="btn-back" onclick="showView('view-home')">⬅ กลับหน้าแรก</button>
- 
-    <h2>💊 คีย์ชื่อยา</h2>
- 
-    <input type="text" id="drugInput" list="drugList" placeholder="พิมพ์ชื่อยา เช่น พาราเซตามอล, Amoxicillin..." oninput="onDrugInputChange()">
-    <datalist id="drugList"></datalist>
- 
-    <div id="drugInfoBox" class="drug-info">
-      <strong id="drugInfoName"></strong>
-      <p><b>ข้อบ่งใช้:</b> <span id="drugInfoIndication"></span></p>
-      <p><b>ขนาดยา:</b> <span id="drugInfoDosage"></span></p>
-    </div>
- 
-    <div id="drugNotFound" class="statusBox" style="display:none;">
-      ⚠️ ไม่พบยานี้ในฐานข้อมูล กรุณาตรวจสอบการสะกด หรือเพิ่มยานี้ในฐานข้อมูล
-    </div>
- 
-    <div id="drugCounselSection" style="display:none;">
-      <h3>🎙️ บันทึกเสียงการให้คำแนะนำ</h3>
-      <button class="btn-record" onclick="startRecording('drug-transcript','drug-status'); drug_finalTextReset();">🎙️ เริ่มบันทึกเสียง</button>
-      <button class="btn-primary" onclick="checkDrugProgress()">➡️ NEXT (ตรวจสอบหัวข้อที่ยังขาด)</button>
-      <button class="btn-stop" onclick="stopRecording()">⏹ หยุดบันทึก</button>
-
-      <div id="drug-status" class="statusBox">สถานะ: พร้อมใช้งาน</div>
-
-      <h3>📝 Transcript</h3>
-      <div id="drug-transcript" class="transcript">ยังไม่มีข้อความ</div>
-
-      <h3>📋 Counseling Checklist (เฉพาะยานี้)</h3>
-      <div id="drugChecklist" class="checklist"></div>
-      <div class="score" id="drugScore">Counseling Score: -</div>
-
-      <div style="margin-top:20px; padding:15px; background:#f1f2f6; border-radius:10px;">
-        <h3 style="margin-top:0;">💊 รายการยาของผู้ป่วย</h3>
-        <div id="selectedDrugList"></div>
-
-        <button class="btn-primary" onclick="addNextDrug()">➕ เพิ่มยาตัวถัดไป</button>
-        <button class="btn-primary" onclick="saveDispensing()">💾 บันทึกการจ่ายยา</button>
-        <button class="btn-refresh" onclick="finishService()">✅ เสร็จสิ้นการให้บริการ</button>
+      <div class="bg-white p-5 rounded-xl shadow-sm border border-slate-200">
+        <h3 class="font-semibold text-slate-700 border-b pb-2">💊 การจ่ายยา</h3>
+        <div class="flex flex-wrap gap-2 mt-3">
+          <button onclick="addNextDrug()" class="bg-slate-700 hover:bg-slate-800 text-white font-medium py-2.5 px-4 rounded-lg">➕ เพิ่มยาตัวถัดไป</button>
+          <button onclick="saveDispensing()" class="bg-indigo-600 hover:bg-indigo-700 text-white font-medium py-2.5 px-4 rounded-lg">💾 บันทึกการจ่ายยา</button>
+          <button onclick="finishService()" class="bg-emerald-600 hover:bg-emerald-700 text-white font-medium py-2.5 px-4 rounded-lg">✅ เสร็จสิ้นการให้บริการ</button>
+        </div>
+        <p class="text-xs text-slate-500 mt-3">ข้อมูลทั้งหมดจะถูกส่งเข้า Google Sheets เมื่อกด “เสร็จสิ้นการให้บริการ” เท่านั้น</p>
       </div>
     </div>
   </div>
- 
-  <!-- ============================================================ -->
-  <!-- VIEW: LOG / HISTORY OF SESSIONS -->
-  <!-- ============================================================ -->
-  <div id="view-log" class="view">
-    <button class="btn-back" onclick="showView('view-home')">⬅ กลับหน้าแรก</button>
-    <button class="btn-refresh" onclick="loadLog()">🔄 รีเฟรชข้อมูล</button>
- 
-    <h2>📚 ประวัติการซักประวัติของเภสัชกร</h2>
- 
-    <div id="log-status" class="statusBox">กำลังโหลดข้อมูล...</div>
- 
-    <div style="overflow-x:auto;">
-      <table id="logTable">
-        <thead>
-          <tr>
-            <th>วันที่</th>
-            <th>Session ID</th>
-            <th>ประเภท</th>
-            <th>ยา</th>
-            <th>คะแนน</th>
-            <th>รายการที่ขาด</th>
-          </tr>
-        </thead>
-        <tbody id="logTableBody"></tbody>
-      </table>
-    </div>
-  </div>
- 
-</div>
- 
-<!-- ============================================================ -->
-<!-- MODAL POPUP: ใช้เตือน/แสดงหัวข้อที่ยังไม่ได้พูด -->
-<!-- ============================================================ -->
-<div id="checklistModal" class="modal-overlay">
-  <div class="modal-box">
-    <h3 id="modalTitle">หัวข้อที่ยังไม่ได้พูด</h3>
-    <div id="modalBody"></div>
-    <div class="modal-note" id="modalNote"></div>
-    <button class="btn-primary" onclick="closeModal()">ปิด (พูดต่อได้เลย)</button>
-  </div>
-</div>
- 
- 
+</section>
+
+<section id="view-log" class="view space-y-6">
+  <div class="flex justify-between items-center bg-white p-4 rounded-xl shadow-sm border border-slate-200"><div><h2 class="text-xl font-bold">Dashboard</h2><p class="text-sm text-slate-500">ประวัติการซักประวัติและการให้คำแนะนำยาของเภสัชกร</p></div><button onclick="loadLog()" class="bg-indigo-600 hover:bg-indigo-700 text-white px-4 py-2 rounded-lg"><i class="fa-solid fa-rotate mr-1"></i>รีเฟรช</button></div>
+  <div id="log-status" class="p-3 rounded-lg bg-slate-100 text-slate-600 text-sm">กำลังโหลดข้อมูล...</div>
+  <div class="bg-white rounded-xl shadow-sm border border-slate-200 overflow-hidden"><div class="overflow-x-auto"><table id="logTable" class="w-full text-sm"><thead class="bg-indigo-900 text-white"><tr><th class="p-3 text-left">วันที่</th><th class="p-3 text-left">Session ID</th><th class="p-3 text-left">ประเภท</th><th class="p-3 text-left">ยา</th><th class="p-3 text-left">คะแนน</th><th class="p-3 text-left">รายการที่ขาด</th></tr></thead><tbody id="logTableBody" class="divide-y divide-slate-200"></tbody></table></div></div>
+</section>
+
+</main>
+<footer class="text-center text-xs text-slate-400 py-4">Pharmacy Consultation Assistant</footer>
+<div id="checklistModal" class="modal-overlay"><div class="bg-white rounded-2xl p-6 max-w-lg w-[92%] max-h-[80vh] overflow-y-auto shadow-2xl"><h3 id="modalTitle" class="text-lg font-bold text-slate-800"></h3><div id="modalBody" class="mt-3 text-sm text-slate-700"></div><div id="modalNote" class="mt-3 text-xs text-slate-500"></div><button onclick="closeModal()" class="mt-4 bg-indigo-600 hover:bg-indigo-700 text-white px-4 py-2 rounded-lg">ปิด</button></div></div>
+
 <script>
+
+
  
 // =====================================================
 // CONFIG — แก้ URL นี้เป็น URL ของ Apps Script ที่ deploy ของคุณ
@@ -354,12 +123,36 @@ const API_URL = "https://script.google.com/macros/s/AKfycby-1f6yKecrhwL6zphf8qiy
  
  
 // =====================================================
+// TAB NAVIGATION — หน้าตาแบบแท็บ แต่ใช้ระบบภายในเดิม
+// =====================================================
+function switchTab(tab) {
+  const target = "view-" + (tab === 1 ? "history" : tab === 2 ? "drug" : "log");
+  if (tab === 2 && !patientData.history) {
+    alert("กรุณากดหยุดบันทึกการซักประวัติก่อนเข้าสู่ขั้นตอนคีย์ยา");
+    tab = 1;
+  }
+  showView("view-" + (tab === 1 ? "history" : tab === 2 ? "drug" : "log"));
+  document.querySelectorAll("[id^='nav-btn-']").forEach(btn => {
+    btn.classList.remove("bg-indigo-700","text-white","shadow");
+    btn.classList.add("text-indigo-100");
+  });
+  const active = document.getElementById("nav-btn-" + tab);
+  if (active) {
+    active.classList.add("bg-indigo-700","text-white","shadow");
+    active.classList.remove("text-indigo-100");
+  }
+  if (tab === 3) loadLog();
+}
+function goToTab2() { openDrugView(); }
+
+// =====================================================
 // VIEW ROUTER
 // =====================================================
 function showView(viewId) {
   document.querySelectorAll('.view').forEach(v => v.classList.remove('active'));
   document.getElementById(viewId).classList.add('active');
   userRequestedStop = true;
+  manualStopRequested = false;
   if (recognition && isListening) recognition.stop();
 }
  
@@ -603,6 +396,7 @@ let activeFinalText = "";
 let activeTranscriptId = null;
 let activeStatusId = null;
 let userRequestedStop = true; // true = ผู้ใช้ตั้งใจหยุด, false = กำลังฟังต่อเนื่องตามflow
+  let manualStopRequested = false; // true เฉพาะเมื่อกดปุ่ม "หยุดบันทึก"
  
 if (!SpeechRecognitionAPI) {
   alert("Browser นี้ไม่รองรับ Speech Recognition\nกรุณาใช้ Google Chrome");
@@ -642,6 +436,13 @@ if (!SpeechRecognitionAPI) {
   // ถ้ายังไม่ได้ตั้งใจหยุด ให้เริ่มฟังต่อทันทีเพื่อให้ฟังได้ต่อเนื่องตลอดการซักประวัติ/ให้คำแนะนำ
   recognition.onend = function () {
     isListening = false;
+
+    if (manualStopRequested) {
+      manualStopRequested = false;
+      finalizeStoppedRecording();
+      return;
+    }
+
     if (!userRequestedStop) {
       try { recognition.start(); } catch (err) { /* ignore ถ้า start ซ้ำเร็วเกินไป */ }
     } else {
@@ -652,9 +453,11 @@ if (!SpeechRecognitionAPI) {
  
 function startRecording(transcriptId, statusId) {
   if (!recognition) return;
+  activeFinalText = "";
   activeTranscriptId = transcriptId;
   activeStatusId = statusId;
   userRequestedStop = false;
+  manualStopRequested = false;
   document.getElementById(transcriptId).innerText = "กำลังฟัง...";
   recognition.start();
 }
@@ -662,7 +465,111 @@ function startRecording(transcriptId, statusId) {
 function stopRecording() {
   if (!recognition) return;
   userRequestedStop = true;
-  recognition.stop();
+  manualStopRequested = true;
+  if (isListening) {
+    recognition.stop();
+  } else {
+    manualStopRequested = false;
+    finalizeStoppedRecording();
+  }
+}
+
+function finalizeStoppedRecording() {
+  const text = activeFinalText.trim();
+
+  if (activeTranscriptId === "history-transcript") {
+    if (!text) {
+      document.getElementById("history-status").innerText = "⚠️ ยังไม่มีข้อความที่บันทึก";
+      return;
+    }
+
+    const result = checkChecklist(text, historyChecklist, "historyChecklist");
+    document.getElementById("historyScore").innerText =
+      "History Score: " + result.score + "%";
+
+    patientData.history = {
+      transcript: text,
+      score: result.score,
+      missing: result.missing
+    };
+
+    document.getElementById("history-status").innerText =
+      "⏹ หยุดบันทึกแล้ว — เก็บข้อมูลซักประวัติไว้ใน Session";
+    document.getElementById("goToDrugBtn").style.display = "inline-block";
+
+    const note = result.missing.length
+      ? "มีหัวข้อที่ยังไม่ได้พูด แต่สามารถไปคีย์ยาได้เลย"
+      : "ซักประวัติครบตาม Checklist";
+
+    showModal(
+      "บันทึกซักประวัติแล้ว ✅",
+      "<p>ระบบเก็บข้อมูลซักประวัติของผู้ป่วยคนนี้ไว้แล้ว</p>" +
+      "<p><b>คะแนน: " + result.score + "%</b></p>" +
+      (result.missing.length
+        ? "<p>หัวข้อที่ยังขาด:</p>" + missingListHtml(result.missing)
+        : "<p>Checklist ครบถ้วนแล้ว ✅</p>"),
+      note + " และข้อมูลจะยังไม่ถูกส่งขึ้น Google Sheets จนกว่าจะกด เสร็จสิ้นการให้บริการ"
+    );
+    return;
+  }
+
+  if (activeTranscriptId === "drug-transcript") {
+    if (!currentDrug) {
+      document.getElementById("drug-status").innerText = "⚠️ กรุณาเลือกชื่อยาก่อน";
+      return;
+    }
+
+    if (!text) {
+      document.getElementById("drug-status").innerText = "⚠️ ยังไม่มีข้อความที่บันทึก";
+      return;
+    }
+
+    const result = checkChecklist(
+      text,
+      currentDrug.counseling,
+      "drugChecklist"
+    );
+
+    document.getElementById("drugScore").innerText =
+      "Counseling Score: " + result.score + "%";
+
+    const drugRecord = {
+      drugName: currentDrug.name,
+      transcript: text,
+      score: result.score,
+      missing: result.missing
+    };
+
+    const existingIndex = patientData.drugs.findIndex(
+      d => d.drugName === drugRecord.drugName
+    );
+
+    if (existingIndex >= 0) {
+      patientData.drugs[existingIndex] = drugRecord;
+    } else {
+      patientData.drugs.push(drugRecord);
+    }
+
+    patientData.dispensingSaved = false;
+    document.getElementById("drugNextBtn").style.display = "inline-block";
+
+    document.getElementById("drug-status").innerText =
+      result.missing.length
+        ? "⏹ หยุดบันทึกแล้ว — เก็บข้อมูลยานี้ไว้ใน Session (ยังมีหัวข้อที่ขาด)"
+        : "⏹ หยุดบันทึกแล้ว — คำแนะนำยาครบตาม Checklist";
+
+    updateSelectedDrugList();
+
+    showModal(
+      "บันทึกคำแนะนำยาแล้ว ✅",
+      "<p><b>" + currentDrug.name + "</b></p>" +
+      "<p>คะแนน: <b>" + result.score + "%</b></p>" +
+      (result.missing.length
+        ? "<p>หัวข้อที่ยังขาด:</p>" + missingListHtml(result.missing)
+        : "<p>Checklist ครบถ้วนแล้ว ✅</p>"),
+      "สามารถคีย์ยาตัวถัดไปได้ทันที ข้อมูลทั้งหมดจะบันทึกขึ้น Google Sheets เมื่อกด 'เสร็จสิ้นการให้บริการ'"
+    );
+  }
 }
  
 function history_finalTextReset() { activeFinalText = ""; }
@@ -774,22 +681,24 @@ function resetPatientSession() {
 
   document.getElementById("history-transcript").innerText = "ยังไม่มีข้อความ";
   document.getElementById("historyScore").innerText = "History Score: -";
+  document.getElementById("goToDrugBtn").style.display = "none";
   document.getElementById("history-status").innerText = "สถานะ: พร้อมใช้งาน";
   displayChecklist(historyChecklist, "historyChecklist");
 
   document.getElementById("drug-transcript").innerText = "ยังไม่มีข้อความ";
   document.getElementById("drugScore").innerText = "Counseling Score: -";
   document.getElementById("drug-status").innerText = "สถานะ: พร้อมใช้งาน";
+  document.getElementById("drugNextBtn").style.display = "none";
   updateSelectedDrugList();
 }
 
 function openDrugView() {
   if (!patientData.history) {
-    alert("กรุณาซักประวัติผู้ป่วยและตรวจสอบให้ครบก่อนคีย์ยา");
-    showView("view-history");
+    alert("กรุณาซักประวัติผู้ป่วยก่อน แล้วกด 'หยุดบันทึก' เพื่อเข้าสู่ขั้นตอนคีย์ยา");
+    switchTab(1);
     return;
   }
-  showView("view-drug");
+  switchTab(2);
   updateSelectedDrugList();
 }
 
@@ -805,35 +714,16 @@ function checkHistoryProgress() {
   }
 
   const result = checkChecklist(activeFinalText, historyChecklist, "historyChecklist");
-  document.getElementById("historyScore").innerText = "History Score: " + result.score + "%";
+  document.getElementById("historyScore").innerText =
+    "History Score: " + result.score + "%";
 
-  if (result.missing.length === 0) {
-    stopRecording();
-
-    patientData.history = {
-      transcript: activeFinalText.trim(),
-      score: result.score,
-      missing: result.missing
-    };
-
-    document.getElementById("history-status").innerText =
-      "✅ ซักประวัติครบแล้ว — เก็บไว้ใน Session ชั่วคราว";
-
-    showModal(
-      "ซักประวัติครบถ้วนแล้ว ✅",
-      "<p>ข้อมูลซักประวัติถูกเก็บไว้ใน Session ของผู้ป่วยคนนี้แล้ว</p>" +
-      "<p><b>ยังไม่ได้ส่งขึ้น Google Sheets</b></p>",
-      "ไปคีย์ชื่อยาเพื่อดำเนินการต่อได้เลย"
-    );
-  } else {
-    document.getElementById("history-status").innerText =
-      "🎙️ กำลังฟังต่อ — ยังมีหัวข้อที่ยังไม่ได้ถาม";
-    showModal(
-      "หัวข้อที่ยังไม่ได้ถาม ⚠️ (" + result.missing.length + " ข้อ)",
-      missingListHtml(result.missing),
-      "ระบบยังฟังอยู่ พูดถามหัวข้อที่ขาดต่อได้เลย แล้วกด NEXT อีกครั้ง"
-    );
-  }
+  showModal(
+    "ผลการตรวจสอบซักประวัติ",
+    result.missing.length
+      ? "<p>หัวข้อที่ยังขาด:</p>" + missingListHtml(result.missing)
+      : "<p>Checklist ครบถ้วนแล้ว ✅</p>",
+    "ปุ่ม NEXT มีไว้ตรวจสอบเท่านั้น หากต้องการจบการซักประวัติให้กด 'หยุดบันทึก'"
+  );
 }
 
 // =====================================================
@@ -928,49 +818,12 @@ function checkDrugProgress() {
   document.getElementById("drugScore").innerText =
     "Counseling Score: " + result.score + "%";
 
-  if (result.missing.length > 0) {
-    document.getElementById("drug-status").innerText =
-      "🎙️ กำลังฟังต่อ — ยังมีหัวข้อที่ยังไม่ได้พูด";
-
-    showModal(
-      "หัวข้อที่ยังไม่ได้พูด ⚠️ (" + result.missing.length + " ข้อ)",
-      missingListHtml(result.missing),
-      "ระบบยังฟังอยู่ พูดคำแนะนำที่ขาดต่อได้เลย แล้วกด NEXT อีกครั้ง"
-    );
-    return;
-  }
-
-  stopRecording();
-
-  const drugRecord = {
-    drugName: currentDrug.name,
-    transcript: activeFinalText.trim(),
-    score: result.score,
-    missing: result.missing
-  };
-
-  const existingIndex = patientData.drugs.findIndex(
-    d => d.drugName === drugRecord.drugName
-  );
-
-  if (existingIndex >= 0) {
-    patientData.drugs[existingIndex] = drugRecord;
-  } else {
-    patientData.drugs.push(drugRecord);
-  }
-
-  patientData.dispensingSaved = false;
-
-  document.getElementById("drug-status").innerText =
-    "✅ ให้คำแนะนำยานี้ครบแล้ว — เก็บไว้ใน Session ชั่วคราว";
-
-  updateSelectedDrugList();
-
   showModal(
-    "ให้คำแนะนำ " + currentDrug.name + " ครบแล้ว ✅",
-    "<p>ข้อมูลยานี้ถูกเก็บไว้ใน Session ของผู้ป่วยแล้ว</p>" +
-    "<p><b>ยังไม่ได้ส่งขึ้น Google Sheets</b></p>",
-    "สามารถเพิ่มยาตัวถัดไป หรือกดบันทึกการจ่ายยาได้"
+    "ผลการตรวจสอบคำแนะนำยา",
+    result.missing.length
+      ? "<p>หัวข้อที่ยังขาด:</p>" + missingListHtml(result.missing)
+      : "<p>Checklist ครบถ้วนแล้ว ✅</p>",
+    "NEXT มีไว้ตรวจสอบเท่านั้น หากต้องการจบการบันทึกให้กด 'หยุดบันทึก'"
   );
 }
 
@@ -1005,7 +858,7 @@ function addNextDrug() {
   );
 
   if (!savedCurrentDrug) {
-    alert("กรุณาให้คำแนะนำและกด NEXT จนระบบตรวจว่ายานี้ครบก่อน");
+    alert("กรุณากด 'หยุดบันทึก' หลังให้คำแนะนำยา เพื่อบันทึกยานี้ก่อนเพิ่มยาตัวถัดไป");
     return;
   }
 
@@ -1028,7 +881,7 @@ function addNextDrug() {
 
 function saveDispensing() {
   if (!patientData.history) {
-    alert("ยังไม่มีข้อมูลซักประวัติที่ตรวจสอบครบ");
+    alert("ยังไม่มีข้อมูลซักประวัติ กรุณากดหยุดบันทึกในขั้นตอนซักประวัติก่อน");
     return;
   }
 
@@ -1042,7 +895,7 @@ function saveDispensing() {
       d => d.drugName === currentDrug.name
     );
     if (!currentSaved) {
-      alert("ยาตัวปัจจุบันยังตรวจสอบไม่ครบ กรุณากด NEXT ก่อน");
+      alert("ยาตัวปัจจุบันยังไม่ได้กดหยุดบันทึก กรุณากดหยุดบันทึกก่อน");
       return;
     }
   }
@@ -1062,7 +915,7 @@ function saveDispensing() {
 
 function finishService() {
   if (!patientData.history) {
-    alert("กรุณาซักประวัติและตรวจสอบให้ครบก่อน");
+    alert("กรุณาหยุดบันทึกขั้นตอนซักประวัติก่อน");
     return;
   }
 
@@ -1108,7 +961,7 @@ function finishService() {
     setTimeout(function() {
       closeModal();
       resetPatientSession();
-      showView("view-home");
+      showView('view-home');
     }, 1200);
   });
 }
@@ -1209,6 +1062,8 @@ function loadLog() {
   document.body.appendChild(script);
 }
  
+
+
 </script>
 </body>
 </html>
