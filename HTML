@@ -1,1 +1,934 @@
+<!DOCTYPE html>
+<html lang="th">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Pharma Copilot</title>
+ 
+<style>
+  * { box-sizing: border-box; }
+ 
+  body {
+    font-family: Arial, sans-serif;
+    background: #f5f3ff;
+    margin: 0;
+    padding: 30px;
+  }
+ 
+  .container {
+    max-width: 900px;
+    margin: auto;
+    background: white;
+    padding: 30px;
+    border-radius: 20px;
+    box-shadow: 0 5px 20px rgba(0,0,0,0.1);
+  }
+ 
+  h1 { text-align: center; margin-top: 0; }
+  h2 { margin-top: 30px; }
+ 
+  p.subtitle { text-align: center; color: #666; margin-top: -10px; }
+ 
+  /* ---------- Views ---------- */
+  .view { display: none; }
+  .view.active { display: block; }
+ 
+  /* ---------- Home menu ---------- */
+  .menu-grid {
+    display: grid;
+    grid-template-columns: 1fr;
+    gap: 16px;
+    margin-top: 30px;
+  }
+ 
+  .menu-card {
+    display: flex;
+    align-items: center;
+    gap: 16px;
+    padding: 20px;
+    border-radius: 14px;
+    background: #f1f2f6;
+    border: 2px solid transparent;
+    cursor: pointer;
+    text-align: left;
+    transition: 0.15s;
+  }
+ 
+  .menu-card:hover {
+    border-color: #6c5ce7;
+    background: #eee6ff;
+  }
+ 
+  .menu-card .icon { font-size: 32px; }
+  .menu-card .title { font-size: 18px; font-weight: bold; }
+  .menu-card .desc { font-size: 14px; color: #666; }
+ 
+  /* ---------- Buttons ---------- */
+  button {
+    padding: 12px 20px;
+    border: none;
+    border-radius: 10px;
+    cursor: pointer;
+    margin: 5px 5px 5px 0;
+    font-size: 15px;
+  }
+ 
+  .btn-record   { background: #6c5ce7; color: white; }
+  .btn-stop     { background: #d63031; color: white; }
+  .btn-primary  { background: #0984e3; color: white; }
+  .btn-back     { background: #b2bec3; color: white; }
+  .btn-refresh  { background: #00b894; color: white; }
+ 
+  .statusBox {
+    margin-top: 15px;
+    padding: 12px 15px;
+    background: #eee;
+    border-radius: 10px;
+    font-size: 14px;
+  }
+ 
+  .transcript {
+    margin-top: 15px;
+    padding: 20px;
+    background: #fafafa;
+    border: 1px solid #ddd;
+    border-radius: 10px;
+    min-height: 100px;
+    white-space: pre-wrap;
+  }
+ 
+  .checklist { margin-top: 15px; }
+ 
+  .item {
+    padding: 10px;
+    margin: 5px 0;
+    border-radius: 8px;
+    background: #f1f2f6;
+  }
+ 
+  .done    { background: #dff9fb; }
+  .missing { background: #ffeaa7; }
+ 
+  .score {
+    font-size: 18px;
+    font-weight: bold;
+    margin-top: 15px;
+  }
+ 
+  input[type="text"] {
+    width: 100%;
+    padding: 12px;
+    border-radius: 10px;
+    border: 1px solid #ccc;
+    font-size: 16px;
+    margin-top: 10px;
+  }
+ 
+  .drug-info {
+    margin-top: 15px;
+    padding: 15px;
+    background: #eaf6ff;
+    border-radius: 10px;
+    display: none;
+  }
+ 
+  .drug-info.show { display: block; }
+ 
+  table {
+    width: 100%;
+    border-collapse: collapse;
+    margin-top: 15px;
+    font-size: 13px;
+  }
+ 
+  th, td {
+    border: 1px solid #ddd;
+    padding: 8px;
+    text-align: left;
+    vertical-align: top;
+  }
+ 
+  th { background: #6c5ce7; color: white; }
+ 
+  tr:nth-child(even) { background: #f9f9f9; }
+ 
+  /* ---------- Modal popup ---------- */
+  .modal-overlay {
+    display: none;
+    position: fixed;
+    top: 0; left: 0; right: 0; bottom: 0;
+    background: rgba(0,0,0,0.5);
+    z-index: 1000;
+    align-items: center;
+    justify-content: center;
+  }
+ 
+  .modal-overlay.show { display: flex; }
+ 
+  .modal-box {
+    background: white;
+    border-radius: 16px;
+    padding: 25px;
+    max-width: 480px;
+    width: 90%;
+    max-height: 80vh;
+    overflow-y: auto;
+    box-shadow: 0 10px 40px rgba(0,0,0,0.3);
+  }
+ 
+  .modal-box h3 { margin-top: 0; }
+ 
+  .modal-box ul { padding-left: 20px; margin: 10px 0; }
+  .modal-box li { margin: 6px 0; }
+ 
+  .modal-note {
+    font-size: 13px;
+    color: #666;
+    margin-top: 10px;
+  }
+</style>
+</head>
+ 
+<body>
+<div class="container">
+ 
+  <h1>💊 Pharma Copilot</h1>
+  <p class="subtitle">ระบบช่วยตรวจสอบความครบถ้วนในการซักประวัติและให้คำแนะนำยา</p>
+ 
+  <!-- ============================================================ -->
+  <!-- VIEW: HOME -->
+  <!-- ============================================================ -->
+  <div id="view-home" class="view active">
+    <div class="menu-grid">
+ 
+      <div class="menu-card" onclick="showView('view-history')">
+        <div class="icon">🩺</div>
+        <div>
+          <div class="title">1. ซักประวัติผู้ป่วย</div>
+          <div class="desc">อัดเสียงการซักประวัติ ระบบจะตรวจว่าซักครบตามหัวข้อหรือไม่</div>
+        </div>
+      </div>
+ 
+      <div class="menu-card" onclick="showView('view-drug')">
+        <div class="icon">💊</div>
+        <div>
+          <div class="title">2. คีย์ชื่อยา / ตรวจการให้คำแนะนำ</div>
+          <div class="desc">พิมพ์ชื่อยา ดูข้อมูลยา แล้วอัดเสียงเพื่อเช็คว่าให้คำแนะนำครบไหม</div>
+        </div>
+      </div>
+ 
+      <div class="menu-card" onclick="showView('view-log'); loadLog();">
+        <div class="icon">📚</div>
+        <div>
+          <div class="title">3. ประวัติการซักประวัติของเภสัชกร</div>
+          <div class="desc">ดูสรุปคะแนนและบันทึกย้อนหลังทั้งหมด</div>
+        </div>
+      </div>
+ 
+    </div>
+  </div>
+ 
+  <!-- ============================================================ -->
+  <!-- VIEW: HISTORY TAKING -->
+  <!-- ============================================================ -->
+  <div id="view-history" class="view">
+    <button class="btn-back" onclick="showView('view-home')">⬅ กลับหน้าแรก</button>
+ 
+    <h2>🩺 ซักประวัติผู้ป่วย</h2>
+ 
+    <button class="btn-record" onclick="startRecording('history-transcript','history-status'); history_finalTextReset();">🎙️ เริ่มบันทึกเสียง</button>
+    <button class="btn-primary" onclick="checkHistoryProgress()">➡️ NEXT (ตรวจสอบหัวข้อที่ยังขาด)</button>
+    <button class="btn-stop" onclick="stopRecording()">⏹ หยุดบันทึก</button>
+ 
+    <div id="history-status" class="statusBox">สถานะ: พร้อมใช้งาน</div>
+ 
+    <h3>📝 Transcript</h3>
+    <div id="history-transcript" class="transcript">ยังไม่มีข้อความ</div>
+ 
+    <h3>📋 History Checklist</h3>
+    <div id="historyChecklist" class="checklist"></div>
+    <div class="score" id="historyScore">History Score: -</div>
+ 
+    <div style="margin-top:20px; padding:15px; background:#f1f2f6; border-radius:10px;">
+      เมื่อซักประวัติเสร็จและกดบันทึกแล้ว กด
+      <button class="btn-back" style="margin:0" onclick="showView('view-home')">⬅ กลับหน้าแรกเพื่อคีย์ชื่อยา</button>
+    </div>
+  </div>
+ 
+  <!-- ============================================================ -->
+  <!-- VIEW: DRUG COUNSELING -->
+  <!-- ============================================================ -->
+  <div id="view-drug" class="view">
+    <button class="btn-back" onclick="showView('view-home')">⬅ กลับหน้าแรก</button>
+ 
+    <h2>💊 คีย์ชื่อยา</h2>
+ 
+    <input type="text" id="drugInput" list="drugList" placeholder="พิมพ์ชื่อยา เช่น พาราเซตามอล, Amoxicillin..." oninput="onDrugInputChange()">
+    <datalist id="drugList"></datalist>
+ 
+    <div id="drugInfoBox" class="drug-info">
+      <strong id="drugInfoName"></strong>
+      <p><b>ข้อบ่งใช้:</b> <span id="drugInfoIndication"></span></p>
+      <p><b>ขนาดยา:</b> <span id="drugInfoDosage"></span></p>
+    </div>
+ 
+    <div id="drugNotFound" class="statusBox" style="display:none;">
+      ⚠️ ไม่พบยานี้ในฐานข้อมูล กรุณาตรวจสอบการสะกด หรือเพิ่มยานี้ในฐานข้อมูล
+    </div>
+ 
+    <div id="drugCounselSection" style="display:none;">
+      <h3>🎙️ บันทึกเสียงการให้คำแนะนำ</h3>
+      <button class="btn-record" onclick="startRecording('drug-transcript','drug-status'); drug_finalTextReset();">🎙️ เริ่มบันทึกเสียง</button>
+      <button class="btn-primary" onclick="checkDrugProgress()">➡️ NEXT (ตรวจสอบหัวข้อที่ยังขาด)</button>
+      <button class="btn-stop" onclick="stopRecording()">⏹ หยุดบันทึก</button>
+ 
+      <div id="drug-status" class="statusBox">สถานะ: พร้อมใช้งาน</div>
+ 
+      <h3>📝 Transcript</h3>
+      <div id="drug-transcript" class="transcript">ยังไม่มีข้อความ</div>
+ 
+      <h3>📋 Counseling Checklist (เฉพาะยานี้)</h3>
+      <div id="drugChecklist" class="checklist"></div>
+      <div class="score" id="drugScore">Counseling Score: -</div>
+    </div>
+  </div>
+ 
+  <!-- ============================================================ -->
+  <!-- VIEW: LOG / HISTORY OF SESSIONS -->
+  <!-- ============================================================ -->
+  <div id="view-log" class="view">
+    <button class="btn-back" onclick="showView('view-home')">⬅ กลับหน้าแรก</button>
+    <button class="btn-refresh" onclick="loadLog()">🔄 รีเฟรชข้อมูล</button>
+ 
+    <h2>📚 ประวัติการซักประวัติของเภสัชกร</h2>
+ 
+    <div id="log-status" class="statusBox">กำลังโหลดข้อมูล...</div>
+ 
+    <div style="overflow-x:auto;">
+      <table id="logTable">
+        <thead>
+          <tr>
+            <th>วันที่</th>
+            <th>ประเภท</th>
+            <th>ยา</th>
+            <th>คะแนน</th>
+            <th>รายการที่ขาด</th>
+          </tr>
+        </thead>
+        <tbody id="logTableBody"></tbody>
+      </table>
+    </div>
+  </div>
+ 
+</div>
+ 
+<!-- ============================================================ -->
+<!-- MODAL POPUP: ใช้เตือน/แสดงหัวข้อที่ยังไม่ได้พูด -->
+<!-- ============================================================ -->
+<div id="checklistModal" class="modal-overlay">
+  <div class="modal-box">
+    <h3 id="modalTitle">หัวข้อที่ยังไม่ได้พูด</h3>
+    <div id="modalBody"></div>
+    <div class="modal-note" id="modalNote"></div>
+    <button class="btn-primary" onclick="closeModal()">ปิด (พูดต่อได้เลย)</button>
+  </div>
+</div>
+ 
+ 
+<script>
+ 
+// =====================================================
+// CONFIG — แก้ URL นี้เป็น URL ของ Apps Script ที่ deploy ของคุณ
+// =====================================================
+const API_URL = "https://script.google.com/macros/s/AKfycby-1f6yKecrhwL6zphf8qiyWlt5lCY_E8RMAZhNB9RwyfZbNy_bQ7a0JS2jubMfQgE9qA/exec";
+ 
+ 
+// =====================================================
+// VIEW ROUTER
+// =====================================================
+function showView(viewId) {
+  document.querySelectorAll('.view').forEach(v => v.classList.remove('active'));
+  document.getElementById(viewId).classList.add('active');
+  userRequestedStop = true;
+  if (recognition && isListening) recognition.stop();
+}
+ 
+ 
+// =====================================================
+// MODAL POPUP HELPERS
+// =====================================================
+function showModal(title, bodyHtml, note) {
+  document.getElementById('modalTitle').innerText = title;
+  document.getElementById('modalBody').innerHTML = bodyHtml;
+  document.getElementById('modalNote').innerText = note || "";
+  document.getElementById('checklistModal').classList.add('show');
+}
+ 
+function closeModal() {
+  document.getElementById('checklistModal').classList.remove('show');
+}
+ 
+function missingListHtml(missingArr) {
+  if (!missingArr.length) return "<p>ครบถ้วนแล้ว ✅</p>";
+  return "<ul>" + missingArr.map(m => "<li>" + m + "</li>").join("") + "</ul>";
+}
+ 
+ 
+// =====================================================
+// HISTORY CHECKLIST DATA
+// =====================================================
+const historyChecklist = [
+  { id:"H01", name:"ใครคือผู้ป่วย (ซื้อใช้เอง/ซื้อให้คนอื่น)", keywords:["ซื้อยาใช้เอง","ซื้อยาให้","ใครใช้","ผู้ป่วย"] },
+  { id:"H02", name:"อายุเท่าไหร่", keywords:["อายุ","กี่ขวบ","กี่ปี"] },
+  { id:"H03", name:"น้ำหนัก (เฉพาะเด็กอายุ ≤ 12 ปี)", keywords:["น้ำหนัก","หนัก"] },
+  { id:"H04", name:"เพศ / ตั้งครรภ์ / ให้นมบุตร (กรณีผู้หญิง)", keywords:["ตั้งครรภ์","ท้อง","ให้นม"] },
+  { id:"H05", name:"วันนี้มาด้วยโรคหรืออาการอะไร", keywords:["เป็นอะไร","อาการ"] },
+  { id:"H06", name:"เริ่มมีอาการเมื่อไร เป็นมานานเท่าไร", keywords:["เป็นมากี่วัน","เป็นตั้งแต่","เป็นมานาน"] },
+  { id:"H07", name:"ความรุนแรงเทียบกับวันแรกที่เริ่มเป็น", keywords:["วันแรก","รุนแรง","ต่างกัน"] },
+  { id:"H08", name:"เคยมีอาการเช่นนี้มาก่อนหรือไม่", keywords:["เคยเป็น","เคยมีอาการ"] },
+  { id:"H09", name:"มีอาการอื่นร่วมด้วยหรือไม่", keywords:["อาการอื่น"] },
+  { id:"H10", name:"มีสิ่งใดที่ทำให้อาการแย่ลง", keywords:["แย่ลง","อาการแย่ลง"] },
+  { id:"H11", name:"มีสิ่งใดที่ช่วยให้อาการดีขึ้น", keywords:["ดีขึ้น","อาการดีขึ้น","ช่วย"] },
+  { id:"H12", name:"โรคประจำตัวที่เป็น และยาที่ได้รับ", keywords:["โรคประจำตัว","ประจำ","ทุกวัน"] },
+  { id:"H13", name:"ประวัติสูบบุหรี่ / ดื่มแอลกอฮอล์", keywords:["บุหรี่","เหล้า"] },
+  { id:"H14", name:"เคยใช้ยา/ผลิตภัณฑ์อื่นเพื่อบรรเทาอาการนี้มาก่อนหรือไม่", keywords:["บรรเทาอาการ","รักษาอาการ"] },
+  { id:"H15", name:"ตอนนี้กำลังได้รับยา/ผลิตภัณฑ์เสริมอาหารอื่นอยู่หรือไม่", keywords:["สมุนไพร","อาหารเสริม"] },
+  { id:"H16", name:"มีประวัติแพ้ยาหรือสิ่งอื่นหรือไม่", keywords:["แพ้ยา","แพ้อาหาร","แพ้อะไร"] },
+  { id:"H17", name:"เคยรับประทานยานี้มาก่อนและมีอาการไม่พึงประสงค์หรือไม่", keywords:["เคยทาน","เคยกิน","เคยใช้"] }
+];
+ 
+ 
+// =====================================================
+// DRUG DATABASE
+// สร้างจากเอกสาร "การให้คำแนะนำการใช้ยา" — แบ่งเป็นกลุ่มยา
+// เพิ่มยาใหม่ได้โดย copy object ด้านล่างแล้วแก้ข้อมูล/aliases
+// counseling = checklist เฉพาะของยานี้ (จะเปลี่ยนตามยาที่เลือก)
+// =====================================================
+ 
+// รายการแพ้ยาแบบมาตรฐาน (ผื่นขึ้น หน้าบวม ปากบวม หายใจลำบาก) ใช้ร่วมกันหลายกลุ่มยา
+const allergyBasic = { id:"AL", name:"แจ้งอาการแพ้ยาที่ต้องหยุดยาแล้วไปพบแพทย์ทันที (ผื่นขึ้น หน้าบวม ปากบวม หายใจลำบาก)", keywords:["แพ้","ผื่น","หน้าบวม","ปากบวม","หายใจลำบาก","หยุดใช้","พบแพทย์"] };
+ 
+// ---------- กลุ่ม NSAIDs ----------
+const nsaidCounseling = [
+  { id:"D1", name:"รับประทานหลังอาหารทันที", keywords:["หลังอาหารทันที","หลังอาหาร"] },
+  { id:"D2", name:"ดื่มน้ำตามมากๆ เพื่อลดการระคายเคืองกระเพาะ", keywords:["ดื่มน้ำตาม","น้ำตามมากๆ"] },
+  allergyBasic
+];
+const nsaidDrugs = [
+  { name: "Ibuprofen (ไอบูโพรเฟน)", aliases: ["ibuprofen", "ไอบูโพรเฟน"] },
+  { name: "Naproxen (นาพร็อกเซน)", aliases: ["naproxen", "นาพร็อกเซน"] },
+  { name: "Diclofenac (ไดโคลฟีแนค)", aliases: ["diclofenac", "ไดโคลฟีแนค"] },
+  { name: "Mefenamic acid (เมเฟนามิก แอซิด)", aliases: ["mefenamic acid", "เมเฟนามิก"] },
+  { name: "Celecoxib (เซเลค็อกซิบ)", aliases: ["celecoxib", "เซเลค็อกซิบ"] }
+].map(d => ({
+  ...d,
+  indication: "กลุ่ม NSAIDs — บรรเทาปวด ลดการอักเสบ ลดไข้",
+  dosage: "ตามที่แพทย์/เภสัชกรสั่ง — รับประทานหลังอาหารทันที",
+  counseling: nsaidCounseling
+}));
+ 
+// ---------- กลุ่มยาปฏิชีวนะ (Penicillin) ----------
+const amoxCounseling = [
+  { id:"D1", name:"ทานติดต่อกันทุกวันจนกว่าจะหมด (ห้ามหยุดเอง)", keywords:["ทานติดต่อกัน","จนกว่าจะหมด","ทานจนหมด","ครบ"] },
+  allergyBasic
+];
+const amoxDrugs = [
+  { name: "Amoxicillin (อะม็อกซีซิลลิน)", aliases: ["amoxicillin", "อะม็อกซีซิลลิน"] },
+  { name: "Amoxicillin/Clavulanate (อะม็อกซีซิลลิน คลาวูลาเนต)", aliases: ["amoxicillin clav", "augmentin", "คลาวูลาเนต"] },
+  { name: "Dicloxacillin (ไดคล็อกซาซิลลิน)", aliases: ["dicloxacillin", "ไดคล็อกซาซิลลิน"] }
+].map(d => ({
+  ...d,
+  indication: "ยาปฏิชีวนะกลุ่มเพนิซิลลิน รักษาการติดเชื้อแบคทีเรีย",
+  dosage: "ตามที่แพทย์/เภสัชกรสั่ง — ทานติดต่อกันจนครบตามจำนวนวัน",
+  counseling: amoxCounseling
+}));
+ 
+// ---------- Metronidazole ----------
+const metronidazoleDrug = {
+  name: "Metronidazole (เมโทรนิดาโซล)",
+  aliases: ["metronidazole", "เมโทรนิดาโซล", "flagyl"],
+  indication: "ยาปฏิชีวนะ/ยาฆ่าเชื้อโปรโตซัว",
+  dosage: "ตามที่แพทย์/เภสัชกรสั่ง",
+  counseling: [
+    { id:"D1", name:"ทานติดต่อกันทุกวันจนกว่าจะหมด", keywords:["ทานติดต่อกัน","จนกว่าจะหมด","ทานจนหมด"] },
+    { id:"D2", name:"ห้ามดื่มแอลกอฮอล์ ก่อน/หลังกินยา 24 ชั่วโมง", keywords:["แอลกอฮอล์","24 ชั่วโมง","24ชม"] },
+    allergyBasic
+  ]
+};
+ 
+// ---------- Norfloxacin / Ciprofloxacin ----------
+const quinoloneCounseling = [
+  { id:"D1", name:"ทานติดต่อกันทุกวันจนกว่าจะหมด", keywords:["ทานติดต่อกัน","จนกว่าจะหมด","ทานจนหมด"] },
+  { id:"D2", name:"ห้ามทานร่วมกับนมและยาลดกรด อย่างน้อย 2 ชั่วโมง", keywords:["นม","ยาลดกรด","2 ชั่วโมง","2ชม"] },
+  allergyBasic
+];
+const quinoloneDrugs = [
+  { name: "Norfloxacin (นอร์ฟลอกซาซิน)", aliases: ["norfloxacin", "นอร์ฟลอกซาซิน"] },
+  { name: "Ciprofloxacin (ซิโปรฟลอกซาซิน)", aliases: ["ciprofloxacin", "ซิโปรฟลอกซาซิน"] }
+].map(d => ({
+  ...d,
+  indication: "ยาปฏิชีวนะกลุ่มควิโนโลน รักษาการติดเชื้อแบคทีเรีย",
+  dosage: "ตามที่แพทย์/เภสัชกรสั่ง — ทานติดต่อกันจนครบ",
+  counseling: quinoloneCounseling
+}));
+ 
+// ---------- Tetracycline / Doxycycline ----------
+const tetraCounseling = [
+  { id:"D1", name:"ทานติดต่อกันทุกวันจนกว่าจะหมด", keywords:["ทานติดต่อกัน","จนกว่าจะหมด","ทานจนหมด"] },
+  { id:"D2", name:"ห้ามทานร่วมกับนมและยาลดกรด อย่างน้อย 2 ชั่วโมง", keywords:["นม","ยาลดกรด","2 ชั่วโมง","2ชม"] },
+  { id:"D3", name:"ห้ามนอนราบอย่างน้อย 30 นาทีหลังทานยา", keywords:["นอนราบ","30 นาที"] },
+  allergyBasic
+];
+const tetraDrugs = [
+  { name: "Tetracycline (เตตราไซคลิน)", aliases: ["tetracycline", "เตตราไซคลิน"] },
+  { name: "Doxycycline (ดอกซีไซคลิน)", aliases: ["doxycycline", "ดอกซีไซคลิน"] }
+].map(d => ({
+  ...d,
+  indication: "ยาปฏิชีวนะกลุ่มเตตราไซคลิน รักษาการติดเชื้อแบคทีเรีย",
+  dosage: "ตามที่แพทย์/เภสัชกรสั่ง — ทานติดต่อกันจนครบ",
+  counseling: tetraCounseling
+}));
+ 
+// ---------- ยาต้านไวรัส (Acyclovir group) ----------
+const antiviralCounseling = [
+  { id:"D1", name:"ทานตรงเวลาและทานให้ครบตามจำนวนวันที่สั่งอย่างเคร่งครัด แม้อาการจะดีขึ้นแล้ว", keywords:["ตรงเวลา","ทานให้ครบ","แม้อาการจะดีขึ้น"] },
+  { id:"D2", name:"ดื่มน้ำตามมากๆ วันละ 2–3 ลิตร เพื่อลดความเสี่ยงยาตกผลึกในไต", keywords:["ดื่มน้ำ","2-3 ลิตร","ลิตร"] }
+];
+const antiviralDrugs = [
+  { name: "Acyclovir (อะไซโคลเวียร์)", aliases: ["acyclovir", "อะไซโคลเวียร์"] },
+  { name: "Famciclovir (แฟมไซโคลเวียร์)", aliases: ["famciclovir", "แฟมไซโคลเวียร์"] },
+  { name: "Valacyclovir (วาลาไซโคลเวียร์)", aliases: ["valacyclovir", "วาลาไซโคลเวียร์"] }
+].map(d => ({
+  ...d,
+  indication: "ยาต้านไวรัส (เช่น เริม งูสวัด)",
+  dosage: "ตามที่แพทย์/เภสัชกรสั่ง — ทานตรงเวลาจนครบ",
+  counseling: antiviralCounseling
+}));
+ 
+// ---------- ยาแก้แพ้ชนิดง่วง (Sedating antihistamine) ----------
+const sedatingAntihistamineCounseling = [
+  { id:"D1", name:"อาจทำให้ง่วงนอน ไม่ควรขับรถหรือทำงานเกี่ยวกับเครื่องจักร", keywords:["ง่วงนอน","ขับรถ","เครื่องจักร"] },
+  { id:"D2", name:"หลีกเลี่ยงการดื่มแอลกอฮอล์", keywords:["แอลกอฮอล์"] },
+  { id:"D3", name:"อาจเกิดอาการปากแห้ง คอแห้ง", keywords:["ปากแห้ง","คอแห้ง"] },
+  allergyBasic,
+  { id:"D4", name:"หลีกเลี่ยงสิ่งกระตุ้นที่ทำให้เกิดอาการแพ้ (ฝุ่น ควัน สารก่อภูมิแพ้)", keywords:["สิ่งกระตุ้น","ฝุ่น","ควัน","สารก่อภูมิแพ้"] },
+  { id:"D5", name:"ควรพักผ่อนให้เพียงพอ และดื่มน้ำมากขึ้นหากปากแห้ง", keywords:["พักผ่อน","ดื่มน้ำ"] }
+];
+const sedatingAntihistamineDrugs = [
+  { name: "Chlorpheniramine / CPM (คลอเฟนิรามีน)", aliases: ["chlorpheniramine", "cpm", "คลอเฟนิรามีน"] },
+  { name: "Diphenhydramine (ไดเฟนไฮดรามีน)", aliases: ["diphenhydramine", "ไดเฟนไฮดรามีน"] },
+  { name: "Hydroxyzine (ไฮดรอกไซซีน)", aliases: ["hydroxyzine", "ไฮดรอกไซซีน"] }
+].map(d => ({
+  ...d,
+  indication: "ยาแก้แพ้ ลดน้ำมูก ลมพิษ (ชนิดง่วง)",
+  dosage: "ตามที่แพทย์/เภสัชกรสั่ง",
+  counseling: sedatingAntihistamineCounseling
+}));
+ 
+// ---------- ยาแก้แพ้ชนิดไม่ง่วง (Non-sedating antihistamine) ----------
+const nonSedatingAntihistamineCounseling = [
+  { id:"D1", name:"อาจทำให้ง่วงนอนได้ในบางราย หากง่วงควรหลีกเลี่ยงการขับรถ/เครื่องจักร", keywords:["ง่วงนอนได้ในบางราย","ง่วง","ขับรถ","เครื่องจักร"] },
+  { id:"D2", name:"หลีกเลี่ยงการดื่มแอลกอฮอล์", keywords:["แอลกอฮอล์"] },
+  { id:"D3", name:"อาจเกิดอาการปากแห้ง คอแห้ง", keywords:["ปากแห้ง","คอแห้ง"] },
+  allergyBasic,
+  { id:"D4", name:"หลีกเลี่ยงสิ่งกระตุ้นที่ทำให้เกิดอาการแพ้ (ฝุ่น ควัน สารก่อภูมิแพ้)", keywords:["สิ่งกระตุ้น","ฝุ่น","ควัน","สารก่อภูมิแพ้"] },
+  { id:"D5", name:"ควรพักผ่อนให้เพียงพอ และดื่มน้ำมากขึ้นหากปากแห้ง", keywords:["พักผ่อน","ดื่มน้ำ"] }
+];
+const nonSedatingAntihistamineDrugs = [
+  { name: "Cetirizine (เซทิริซีน)", aliases: ["cetirizine", "เซทิริซีน"] },
+  { name: "Loratadine (ลอราทาดีน)", aliases: ["loratadine", "ลอราทาดีน"] }
+].map(d => ({
+  ...d,
+  indication: "ยาแก้แพ้ ลดน้ำมูก ลมพิษ (ชนิดไม่ง่วง)",
+  dosage: "ผู้ใหญ่ 10 มก. วันละครั้ง",
+  counseling: nonSedatingAntihistamineCounseling
+}));
+ 
+// ---------- Ergot alkaloids ----------
+const ergotamineDrug = {
+  name: "Ergotamine (เออร์โกตามีน) — Cafergot® / Avamigran®",
+  aliases: ["ergotamine", "เออร์โกตามีน", "cafergot", "avamigran"],
+  indication: "รักษาอาการปวดศีรษะไมเกรน",
+  dosage: "ห้ามรับประทานเกิน 6 เม็ด/วัน หรือ 10 เม็ด/สัปดาห์",
+  counseling: [
+    { id:"D1", name:"ห้ามรับประทานเกิน 6 เม็ด/วัน หรือ 10 เม็ด/สัปดาห์", keywords:["6 เม็ด","10 เม็ด","เกินขนาด"] },
+    { id:"D2", name:"อาจทำให้คลื่นไส้ อาเจียน ชาปลายมือปลายเท้า", keywords:["คลื่นไส้","อาเจียน","ชาปลายมือ","ชาปลายเท้า"] },
+    { id:"D3", name:"ห้ามใช้ในหญิงตั้งครรภ์และให้นมบุตร", keywords:["ตั้งครรภ์","ให้นมบุตร"] },
+    { id:"D4", name:"หลีกเลี่ยงแอลกอฮอล์และการทานร่วมกับยาต้านเชื้อรา", keywords:["แอลกอฮอล์","ยาต้านเชื้อรา"] },
+    { id:"D5", name:"อาการแพ้รุนแรงที่ต้องหยุดยาและพบแพทย์ทันที (เจ็บหน้าอก ปลายมือปลายเท้าคล้ำเข้ม/ชารุนแรง)", keywords:["เจ็บหน้าอก","คล้ำเข้ม","ชาอย่างรุนแรง"] }
+  ]
+};
+ 
+const drugDatabase = [
+  ...nsaidDrugs,
+  ...amoxDrugs,
+  metronidazoleDrug,
+  ...quinoloneDrugs,
+  ...tetraDrugs,
+  ...antiviralDrugs,
+  ...sedatingAntihistamineDrugs,
+  ...nonSedatingAntihistamineDrugs,
+  ergotamineDrug
+];
+ 
+ 
+// สร้าง datalist สำหรับ autocomplete ชื่อยา
+const drugListEl = document.getElementById('drugList');
+drugDatabase.forEach(d => {
+  const opt = document.createElement('option');
+  opt.value = d.name;
+  drugListEl.appendChild(opt);
+});
+ 
+ 
+// =====================================================
+// SPEECH RECOGNITION (ใช้ร่วมกันทั้ง 2 ฟังก์ชันที่ต้องอัดเสียง)
+// =====================================================
+const SpeechRecognitionAPI = window.SpeechRecognition || window.webkitSpeechRecognition;
+ 
+let recognition;
+let isListening = false;
+ 
+let activeFinalText = "";
+let activeTranscriptId = null;
+let activeStatusId = null;
+let userRequestedStop = true; // true = ผู้ใช้ตั้งใจหยุด, false = กำลังฟังต่อเนื่องตามflow
+ 
+if (!SpeechRecognitionAPI) {
+  alert("Browser นี้ไม่รองรับ Speech Recognition\nกรุณาใช้ Google Chrome");
+} else {
+  recognition = new SpeechRecognitionAPI();
+  recognition.lang = "th-TH";
+  recognition.continuous = true;
+  recognition.interimResults = true;
+  recognition.maxAlternatives = 1;
+ 
+  recognition.onstart = function () {
+    isListening = true;
+    if (activeStatusId) document.getElementById(activeStatusId).innerText = "🎙️ กำลังฟัง...";
+  };
+ 
+  recognition.onresult = function (event) {
+    let interimText = "";
+    for (let i = event.resultIndex; i < event.results.length; i++) {
+      const text = event.results[i][0].transcript;
+      if (event.results[i].isFinal) {
+        activeFinalText += text + " ";
+      } else {
+        interimText += text;
+      }
+    }
+    if (activeTranscriptId) {
+      document.getElementById(activeTranscriptId).innerText = activeFinalText + interimText;
+    }
+  };
+ 
+  recognition.onerror = function (event) {
+    console.error("Speech error:", event.error);
+    if (activeStatusId) document.getElementById(activeStatusId).innerText = "⚠️ Speech error: " + event.error;
+  };
+ 
+  // บาง browser จะตัดการฟังเองเมื่อเงียบไปสักพัก ทั้งที่ผู้ใช้ยังไม่ได้กดหยุด
+  // ถ้ายังไม่ได้ตั้งใจหยุด ให้เริ่มฟังต่อทันทีเพื่อให้ฟังได้ต่อเนื่องตลอดการซักประวัติ/ให้คำแนะนำ
+  recognition.onend = function () {
+    isListening = false;
+    if (!userRequestedStop) {
+      try { recognition.start(); } catch (err) { /* ignore ถ้า start ซ้ำเร็วเกินไป */ }
+    } else {
+      if (activeStatusId) document.getElementById(activeStatusId).innerText = "⏹ หยุดฟังแล้ว";
+    }
+  };
+}
+ 
+function startRecording(transcriptId, statusId) {
+  if (!recognition) return;
+  activeTranscriptId = transcriptId;
+  activeStatusId = statusId;
+  userRequestedStop = false;
+  document.getElementById(transcriptId).innerText = "กำลังฟัง...";
+  recognition.start();
+}
+ 
+function stopRecording() {
+  if (!recognition) return;
+  userRequestedStop = true;
+  recognition.stop();
+}
+ 
+function history_finalTextReset() { activeFinalText = ""; }
+function drug_finalTextReset() { activeFinalText = ""; }
+ 
+ 
+// =====================================================
+// DISPLAY / CHECK CHECKLIST (ใช้ร่วมกันได้ทั้งสองแบบ)
+// =====================================================
+function displayChecklist(list, containerId) {
+  const container = document.getElementById(containerId);
+  container.innerHTML = "";
+  list.forEach(item => {
+    const div = document.createElement('div');
+    div.className = "item";
+    div.id = containerId + "_" + item.id;
+    div.innerHTML = "⬜ " + item.id + " — " + item.name;
+    container.appendChild(div);
+  });
+}
+ 
+function checkChecklist(text, list, containerId) {
+  const lowerText = text.toLowerCase();
+  let doneCount = 0;
+  const missing = [];
+ 
+  list.forEach(item => {
+    const found = item.keywords.some(k => lowerText.includes(k.toLowerCase()));
+    const el = document.getElementById(containerId + "_" + item.id);
+    if (found) {
+      doneCount++;
+      el.className = "item done";
+      el.innerHTML = "✅ " + item.id + " — " + item.name;
+    } else {
+      missing.push(item.id + " — " + item.name);
+      el.className = "item missing";
+      el.innerHTML = "⚠️ " + item.id + " — " + item.name;
+    }
+  });
+ 
+  const score = list.length ? Math.round((doneCount / list.length) * 100) : 0;
+  return { score, missing };
+}
+ 
+displayChecklist(historyChecklist, "historyChecklist");
+ 
+ 
+// =====================================================
+// SAVE TO GOOGLE SHEETS (JSONP)
+// =====================================================
+function saveToGoogleSheet(type, drugName, transcript, score, missingList, onDone) {
+  const sessionId = "S" + Date.now();
+ 
+  const params = new URLSearchParams({
+    action: "save",
+    callback: "pharmaCallback",
+    sessionId: sessionId,
+    type: type,
+    drugName: drugName || "",
+    transcript: transcript,
+    score: score,
+    missing: missingList.join(" | ")
+  });
+ 
+  window.pharmaCallback = function (response) {
+    console.log("Apps Script response:", response);
+    if (onDone) onDone(response && response.success);
+  };
+ 
+  const script = document.createElement('script');
+  script.src = API_URL + "?" + params.toString();
+  script.onload = function () { script.remove(); };
+  script.onerror = function () {
+    console.error("ส่งข้อมูลไป Apps Script ไม่สำเร็จ");
+    if (onDone) onDone(false);
+    script.remove();
+  };
+  document.body.appendChild(script);
+}
+ 
+ 
+// =====================================================
+// FLOW 1: HISTORY TAKING
+// กด NEXT กี่ครั้งก็ได้ระหว่างพูด (ไม่หยุดอัดเสียง) จนกว่าจะครบทุกหัวข้อ
+// ครบเมื่อไรระบบจะหยุดฟังและบันทึกให้อัตโนมัติ
+// =====================================================
+function checkHistoryProgress() {
+  if (!activeFinalText.trim()) {
+    alert("ยังไม่มีข้อความเสียง กรุณากดเริ่มบันทึกเสียงก่อน");
+    return;
+  }
+ 
+  const result = checkChecklist(activeFinalText, historyChecklist, "historyChecklist");
+  document.getElementById('historyScore').innerText = "History Score: " + result.score + "%";
+ 
+  if (result.missing.length === 0) {
+    document.getElementById('history-status').innerText = "🔍 ครบถ้วนแล้ว กำลังบันทึกข้อมูล...";
+    stopRecording();
+ 
+    saveToGoogleSheet("history", "", activeFinalText, result.score, result.missing, (ok) => {
+      document.getElementById('history-status').innerText = ok
+        ? "✅ บันทึกข้อมูลลง Google Sheets แล้ว — กลับหน้าแรกเพื่อคีย์ชื่อยาได้เลย"
+        : "⚠️ ไม่สามารถบันทึก Google Sheets";
+    });
+ 
+    showModal("ซักประวัติครบถ้วนแล้ว ✅", "<p>บันทึกข้อมูลเรียบร้อยแล้ว กลับหน้าแรกเพื่อคีย์ชื่อยาได้เลยครับ/ค่ะ</p>");
+  } else {
+    document.getElementById('history-status').innerText = "🎙️ กำลังฟังต่อ — ยังมีหัวข้อที่ยังไม่ได้ถาม";
+    showModal(
+      "หัวข้อที่ยังไม่ได้ถาม ⚠️ (" + result.missing.length + " ข้อ)",
+      missingListHtml(result.missing),
+      "ระบบยังฟังอยู่ พูดถามหัวข้อที่ขาดต่อได้เลย แล้วกด NEXT อีกครั้ง"
+    );
+  }
+}
+ 
+ 
+// =====================================================
+// FLOW 2: DRUG COUNSELING
+// =====================================================
+let currentDrug = null;
+let lastRemindedDrugName = null;
+ 
+// 4 หัวข้อหลักที่ต้องให้คำแนะนำเสมอ ไม่ว่าจะเป็นยาอะไร (ตามเอกสาร)
+const generalCounselingReminder = [
+  "อธิบายวิธีใช้ยา",
+  "แจ้งผลข้างเคียง",
+  "การเก็บรักษายา",
+  "การรักษาโดยไม่ใช้ยา / การดูแลตนเอง"
+];
+ 
+function findDrug(query) {
+  const q = query.trim().toLowerCase();
+  if (!q) return null;
+  return drugDatabase.find(d =>
+    d.name.toLowerCase() === q ||
+    d.aliases.some(a => a.toLowerCase() === q)
+  ) || drugDatabase.find(d =>
+    d.name.toLowerCase().includes(q) ||
+    d.aliases.some(a => a.toLowerCase().includes(q))
+  );
+}
+ 
+function onDrugInputChange() {
+  const query = document.getElementById('drugInput').value;
+  const drug = findDrug(query);
+ 
+  const infoBox = document.getElementById('drugInfoBox');
+  const notFoundBox = document.getElementById('drugNotFound');
+  const counselSection = document.getElementById('drugCounselSection');
+ 
+  if (!query.trim()) {
+    infoBox.classList.remove('show');
+    notFoundBox.style.display = "none";
+    counselSection.style.display = "none";
+    currentDrug = null;
+    return;
+  }
+ 
+  if (drug) {
+    currentDrug = drug;
+    document.getElementById('drugInfoName').innerText = drug.name;
+    document.getElementById('drugInfoIndication').innerText = drug.indication;
+    document.getElementById('drugInfoDosage').innerText = drug.dosage;
+    infoBox.classList.add('show');
+    notFoundBox.style.display = "none";
+ 
+    displayChecklist(drug.counseling, "drugChecklist");
+    document.getElementById('drugScore').innerText = "Counseling Score: -";
+    document.getElementById('drug-transcript').innerText = "ยังไม่มีข้อความ";
+    counselSection.style.display = "block";
+ 
+    if (lastRemindedDrugName !== drug.name) {
+      lastRemindedDrugName = drug.name;
+      showModal(
+        "💊 " + drug.name,
+        "<p>อย่าลืมพูดให้คำแนะนำครบทั้ง 4 หัวข้อนี้:</p>" +
+        "<ul>" + generalCounselingReminder.map(x => "<li>" + x + "</li>").join("") + "</ul>",
+        "กดเริ่มบันทึกเสียงแล้วเริ่มให้คำแนะนำได้เลย"
+      );
+    }
+  } else {
+    currentDrug = null;
+    infoBox.classList.remove('show');
+    notFoundBox.style.display = "block";
+    counselSection.style.display = "none";
+  }
+}
+ 
+function checkDrugProgress() {
+  if (!currentDrug) {
+    alert("กรุณาเลือกชื่อยาก่อน");
+    return;
+  }
+  if (!activeFinalText.trim()) {
+    alert("ยังไม่มีข้อความเสียง กรุณากดเริ่มบันทึกเสียงก่อน");
+    return;
+  }
+ 
+  const result = checkChecklist(activeFinalText, currentDrug.counseling, "drugChecklist");
+  document.getElementById('drugScore').innerText = "Counseling Score: " + result.score + "%";
+ 
+  if (result.missing.length === 0) {
+    document.getElementById('drug-status').innerText = "🔍 ครบถ้วนแล้ว กำลังบันทึกข้อมูล...";
+    stopRecording();
+ 
+    saveToGoogleSheet("counseling", currentDrug.name, activeFinalText, result.score, result.missing, (ok) => {
+      document.getElementById('drug-status').innerText = ok
+        ? "✅ บันทึกข้อมูลลง Google Sheets แล้ว"
+        : "⚠️ ไม่สามารถบันทึก Google Sheets";
+    });
+ 
+    showModal("ให้คำแนะนำครบถ้วนแล้ว ✅", "<p>บันทึกข้อมูลเรียบร้อยแล้ว</p>");
+  } else {
+    document.getElementById('drug-status').innerText = "🎙️ กำลังฟังต่อ — ยังมีหัวข้อที่ยังไม่ได้พูด";
+    showModal(
+      "หัวข้อที่ยังไม่ได้พูด ⚠️ (" + result.missing.length + " ข้อ)",
+      missingListHtml(result.missing),
+      "ระบบยังฟังอยู่ พูดคำแนะนำที่ขาดต่อได้เลย แล้วกด NEXT อีกครั้ง"
+    );
+  }
+}
+ 
+ 
+// =====================================================
+// FLOW 3: LOG VIEW
+// =====================================================
+function loadLog() {
+  document.getElementById('log-status').innerText = "🔄 กำลังโหลดข้อมูล...";
+  document.getElementById('logTableBody').innerHTML = "";
+ 
+  const params = new URLSearchParams({
+    action: "list",
+    callback: "pharmaLogCallback"
+  });
+ 
+  window.pharmaLogCallback = function (response) {
+    if (!response || !response.success) {
+      document.getElementById('log-status').innerText = "⚠️ โหลดข้อมูลไม่สำเร็จ";
+      return;
+    }
+ 
+    const rows = response.data || [];
+    const tbody = document.getElementById('logTableBody');
+ 
+    if (rows.length === 0) {
+      document.getElementById('log-status').innerText = "ยังไม่มีข้อมูลบันทึก";
+      return;
+    }
+ 
+    rows.slice().reverse().forEach(row => {
+      const tr = document.createElement('tr');
+      tr.innerHTML =
+        "<td>" + row.date + "</td>" +
+        "<td>" + (row.type === "history" ? "ซักประวัติ" : "ให้คำแนะนำยา") + "</td>" +
+        "<td>" + (row.drugName || "-") + "</td>" +
+        "<td>" + row.score + "%</td>" +
+        "<td>" + (row.missing || "-") + "</td>";
+      tbody.appendChild(tr);
+    });
+ 
+    document.getElementById('log-status').innerText = "พบข้อมูลทั้งหมด " + rows.length + " รายการ";
+  };
+ 
+  const script = document.createElement('script');
+  script.src = API_URL + "?" + params.toString();
+  script.onload = function () { script.remove(); };
+  script.onerror = function () {
+    document.getElementById('log-status').innerText = "⚠️ โหลดข้อมูลไม่สำเร็จ (เชื่อมต่อ Apps Script ไม่ได้)";
+    script.remove();
+  };
+  document.body.appendChild(script);
+}
+ 
+</script>
+</body>
+</html>
+
 
