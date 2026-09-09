@@ -122,6 +122,41 @@ body { font-family: 'Sarabun', sans-serif; }
 <section id="view-log" class="view space-y-6">
   <div class="flex justify-between items-center bg-white p-4 rounded-xl shadow-sm border border-slate-200"><div><h2 class="text-xl font-bold">Dashboard</h2><p class="text-sm text-slate-500">ประวัติการซักประวัติและการให้คำแนะนำยาของเภสัชกร</p></div><button onclick="loadLog()" class="bg-indigo-600 hover:bg-indigo-700 text-white px-4 py-2 rounded-lg"><i class="fa-solid fa-rotate mr-1"></i>รีเฟรช</button></div>
   <div id="log-status" class="p-3 rounded-lg bg-slate-100 text-slate-600 text-sm">กำลังโหลดข้อมูล...</div>
+
+  <div class="bg-white rounded-xl shadow-sm border border-slate-200 p-5">
+    <div class="flex flex-wrap items-center justify-between gap-3 mb-4">
+      <div>
+        <h3 class="font-bold text-slate-800">📊 สรุปข้อมูล</h3>
+        <p class="text-xs text-slate-500">เลือกช่วงวันที่และช่วงคะแนนเพื่อดูสถิติ</p>
+      </div>
+      <button onclick="showSummary()" class="bg-indigo-600 hover:bg-indigo-700 text-white px-4 py-2 rounded-lg text-sm">📊 สรุป</button>
+    </div>
+    <div class="grid grid-cols-1 md:grid-cols-4 gap-3">
+      <div><label class="text-xs text-slate-500">ตั้งแต่วันที่</label><input id="summaryStartDate" type="date" class="w-full mt-1 border rounded-lg px-3 py-2 text-sm"></div>
+      <div><label class="text-xs text-slate-500">ถึงวันที่</label><input id="summaryEndDate" type="date" class="w-full mt-1 border rounded-lg px-3 py-2 text-sm"></div>
+      <div><label class="text-xs text-slate-500">คะแนนต่ำสุด (%)</label><input id="summaryMinScore" type="number" min="0" max="100" placeholder="0" class="w-full mt-1 border rounded-lg px-3 py-2 text-sm"></div>
+      <div><label class="text-xs text-slate-500">คะแนนสูงสุด (%)</label><input id="summaryMaxScore" type="number" min="0" max="100" placeholder="100" class="w-full mt-1 border rounded-lg px-3 py-2 text-sm"></div>
+    </div>
+    <div id="summaryResult" class="mt-4"></div>
+  </div>
+
+  <div class="bg-white rounded-xl shadow-sm border border-red-200 p-5">
+    <div class="flex flex-wrap items-center justify-between gap-3 mb-4">
+      <div>
+        <h3 class="font-bold text-red-700">🗑️ จัดการข้อมูล</h3>
+        <p class="text-xs text-slate-500">ลบข้อมูลเป็นราย Session หรือรีเซตข้อมูลทั้งหมด</p>
+      </div>
+      <button onclick="resetAllData()" class="bg-red-600 hover:bg-red-700 text-white px-4 py-2 rounded-lg text-sm">🗑️ รีเซตข้อมูลทั้งหมด</button>
+    </div>
+    <div class="flex flex-col md:flex-row gap-2">
+      <select id="deleteSessionSelect" class="flex-1 border rounded-lg px-3 py-2 text-sm">
+        <option value="">เลือก Session ที่ต้องการลบ</option>
+      </select>
+      <button onclick="deleteSelectedSession()" class="bg-red-500 hover:bg-red-600 text-white px-4 py-2 rounded-lg text-sm">ลบ Session นี้</button>
+    </div>
+    <p class="text-xs text-red-500 mt-2">การลบข้อมูลจาก Dashboard จะลบทุกแถวของ Session_ID ที่เลือก</p>
+  </div>
+
   <div id="sessionCards" class="space-y-5"></div>
   <div id="logTableBody" class="hidden"></div>
 </section>
@@ -1176,6 +1211,7 @@ function finishService() {
       closeModal();
       resetPatientSession();
       switchTab(1);
+      window.scrollTo({ top: 0, behavior: "smooth" });
     }, 1200);
   });
 }
@@ -1237,6 +1273,111 @@ function escapeHtml(value) {
     .replace(/'/g, "&#039;");
 }
 
+let dashboardRows = [];
+
+function parseDashboardDate(value) {
+  if (!value) return null;
+  const m = String(value).match(/^(\d{4})-(\d{2})-(\d{2})/);
+  if (m) return new Date(Number(m[1]), Number(m[2]) - 1, Number(m[3]));
+  const d = new Date(value);
+  return isNaN(d.getTime()) ? null : d;
+}
+
+function populateDeleteSessions(rows) {
+  const select = document.getElementById("deleteSessionSelect");
+  if (!select) return;
+  const ids = [...new Set(rows.map(r => r.sessionId).filter(Boolean))];
+  select.innerHTML = '<option value="">เลือก Session ที่ต้องการลบ</option>' +
+    ids.map(id => '<option value="' + escapeHtml(id) + '">' + escapeHtml(id) + '</option>').join("");
+}
+
+function getSummaryFilteredRows() {
+  const startValue = document.getElementById("summaryStartDate")?.value || "";
+  const endValue = document.getElementById("summaryEndDate")?.value || "";
+  const minScore = document.getElementById("summaryMinScore")?.value === "" ? 0 : Number(document.getElementById("summaryMinScore").value);
+  const maxScore = document.getElementById("summaryMaxScore")?.value === "" ? 100 : Number(document.getElementById("summaryMaxScore").value);
+  const start = startValue ? new Date(startValue + "T00:00:00") : null;
+  const end = endValue ? new Date(endValue + "T23:59:59") : null;
+
+  return dashboardRows.filter(row => {
+    const d = parseDashboardDate(row.date);
+    const score = Number(row.score);
+    if (start && (!d || d < start)) return false;
+    if (end && (!d || d > end)) return false;
+    if (!isNaN(score) && (score < minScore || score > maxScore)) return false;
+    return true;
+  });
+}
+
+function showSummary() {
+  const rows = getSummaryFilteredRows();
+  const result = document.getElementById("summaryResult");
+  if (!result) return;
+
+  const sessions = new Set(rows.map(r => r.sessionId).filter(Boolean));
+  const scoreRows = rows.filter(r => r.score !== "" && !isNaN(Number(r.score)));
+  const avg = scoreRows.length ? (scoreRows.reduce((a,r) => a + Number(r.score), 0) / scoreRows.length).toFixed(1) : "-";
+
+  const missingCount = {};
+  rows.forEach(row => {
+    String(row.missing || "").split("|").map(x => x.trim()).filter(Boolean).forEach(item => {
+      missingCount[item] = (missingCount[item] || 0) + 1;
+    });
+  });
+  const missingSorted = Object.entries(missingCount).sort((a,b) => b[1] - a[1]);
+  const topMissing = missingSorted.slice(0, 5);
+
+  result.innerHTML = `
+    <div class="grid grid-cols-1 sm:grid-cols-3 gap-3">
+      <div class="bg-indigo-50 rounded-lg p-4"><div class="text-xs text-indigo-600">ผู้ป่วย / Session</div><div class="text-2xl font-bold text-indigo-900">${sessions.size}</div></div>
+      <div class="bg-emerald-50 rounded-lg p-4"><div class="text-xs text-emerald-600">คะแนนเฉลี่ย</div><div class="text-2xl font-bold text-emerald-900">${avg}%</div></div>
+      <div class="bg-amber-50 rounded-lg p-4"><div class="text-xs text-amber-600">รายการข้อมูล</div><div class="text-2xl font-bold text-amber-900">${rows.length}</div></div>
+    </div>
+    <div class="mt-4 rounded-lg border border-slate-200 p-4">
+      <div class="font-semibold text-slate-700 mb-2">⚠️ คำถามที่ลืมบ่อยที่สุด</div>
+      ${topMissing.length ? '<div class="space-y-2">' + topMissing.map((x,i) => '<div class="flex justify-between text-sm"><span>' + (i+1) + '. ' + escapeHtml(x[0]) + '</span><b>' + x[1] + ' ครั้ง</b></div>').join('') + '</div>' : '<div class="text-sm text-slate-400">ไม่มีข้อมูลหัวข้อที่ขาดในช่วงที่เลือก</div>'}
+    </div>`;
+}
+
+function callDashboardAction(params, onDone) {
+  const script = document.createElement("script");
+  script.src = API_URL + "?" + new URLSearchParams(params).toString();
+  const callbackName = params.callback;
+  window[callbackName] = function(response) {
+    try { onDone(response); } finally { delete window[callbackName]; script.remove(); }
+  };
+  script.onerror = function() {
+    delete window[callbackName];
+    script.remove();
+    onDone({success:false, message:"เชื่อมต่อ Apps Script ไม่สำเร็จ"});
+  };
+  document.body.appendChild(script);
+}
+
+function deleteSelectedSession() {
+  const select = document.getElementById("deleteSessionSelect");
+  const sessionId = select ? select.value : "";
+  if (!sessionId) { alert("กรุณาเลือก Session ที่ต้องการลบ"); return; }
+  if (!confirm("ยืนยันลบข้อมูลของ Session " + sessionId + " ทั้งหมด?")) return;
+
+  callDashboardAction({action:"deleteSession", callback:"pharmaDeleteCallback", sessionId:sessionId}, function(response) {
+    if (!response || !response.success) { alert("ลบข้อมูลไม่สำเร็จ: " + ((response && response.message) || "ไม่ทราบสาเหตุ")); return; }
+    alert("ลบข้อมูล Session " + sessionId + " เรียบร้อยแล้ว");
+    loadLog();
+  });
+}
+
+function resetAllData() {
+  if (!confirm("⚠️ ยืนยันรีเซตข้อมูลทั้งหมด?\n\nข้อมูลทุก Session ใน Google Sheets จะถูกลบทั้งหมด และไม่สามารถกู้คืนได้")) return;
+  if (!confirm("ยืนยันอีกครั้ง: ลบข้อมูลผู้ป่วยทั้งหมดใช่หรือไม่?")) return;
+
+  callDashboardAction({action:"resetAll", callback:"pharmaResetCallback"}, function(response) {
+    if (!response || !response.success) { alert("รีเซตข้อมูลไม่สำเร็จ: " + ((response && response.message) || "ไม่ทราบสาเหตุ")); return; }
+    alert("รีเซตข้อมูลทั้งหมดเรียบร้อยแล้ว");
+    loadLog();
+  });
+}
+
 function loadLog() {
   document.getElementById('log-status').innerText = "🔄 กำลังโหลดข้อมูล...";
   const container = document.getElementById('sessionCards');
@@ -1254,6 +1395,9 @@ function loadLog() {
     }
  
     const rows = response.data || [];
+    dashboardRows = rows;
+    populateDeleteSessions(rows);
+    showSummary();
     if (!rows.length) {
       document.getElementById('log-status').innerText = "ยังไม่มีข้อมูลบันทึก";
       if (container) container.innerHTML = '<div class="bg-white rounded-xl border border-slate-200 p-8 text-center text-slate-400">ยังไม่มีข้อมูลผู้ป่วย</div>';
