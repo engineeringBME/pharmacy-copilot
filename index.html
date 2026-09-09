@@ -40,9 +40,10 @@ body { font-family: 'Sarabun', sans-serif; }
       <div class="bg-white p-5 rounded-xl shadow-sm border border-slate-200 space-y-4">
         <h3 class="font-semibold text-slate-700 border-b pb-2 flex items-center"><i class="fa-solid fa-microphone text-indigo-600 mr-2"></i>ควบคุมการบันทึกเสียง</h3>
         <div class="grid grid-cols-2 gap-2">
-          <button id="start-btn-1" onclick="history_finalTextReset(); startRecording('history-transcript','history-status');" class="bg-emerald-600 hover:bg-emerald-700 text-white font-medium py-2.5 px-4 rounded-lg shadow transition"><i class="fa-solid fa-play mr-2"></i>Start</button>
+          <button id="start-btn-1" onclick="startRecording('history-transcript','history-status');" class="bg-emerald-600 hover:bg-emerald-700 text-white font-medium py-2.5 px-4 rounded-lg shadow transition"><i class="fa-solid fa-play mr-2"></i>Start / บันทึกต่อ</button>
           <button id="stop-btn-1" onclick="stopRecording()" class="bg-amber-500 hover:bg-amber-600 text-white font-medium py-2.5 px-4 rounded-lg shadow transition"><i class="fa-solid fa-stop mr-2"></i>Stop</button>
         </div>
+        <div class="text-xs text-slate-500">💡 Stop = หยุดชั่วคราว / Start = บันทึกต่อ · ข้อมูลจะยังไม่ถูกส่งขึ้น Google Sheets</div>
         <div class="grid grid-cols-2 gap-2 pt-2 border-t">
           <button onclick="checkHistoryProgress()" class="bg-indigo-600 hover:bg-indigo-700 text-white font-medium py-2.5 px-4 rounded-lg shadow transition"><i class="fa-solid fa-list-check mr-2"></i>ตรวจสอบ</button>
           <button id="goToDrugBtn" onclick="openDrugView()" style="display:none" class="bg-slate-800 hover:bg-slate-900 text-white font-medium py-2.5 px-4 rounded-lg shadow transition">Next <i class="fa-solid fa-arrow-right ml-2"></i></button>
@@ -97,11 +98,12 @@ body { font-family: 'Sarabun', sans-serif; }
         <div id="currentDrugReview" class="mb-4 bg-indigo-50 border border-indigo-200 rounded-lg p-3">กำลังเตรียมรีเช็คยา...</div>
         <h3 class="font-semibold text-slate-700 border-b pb-2"><i class="fa-solid fa-microphone text-indigo-600 mr-2"></i>บันทึกเสียงการให้คำแนะนำ</h3>
         <div class="grid grid-cols-2 md:grid-cols-4 gap-2 mt-4">
-          <button onclick="drug_finalTextReset(); startRecording('drug-transcript','drug-status');" class="bg-emerald-600 hover:bg-emerald-700 text-white font-medium py-2.5 rounded-lg"><i class="fa-solid fa-play mr-1"></i>Start</button>
+          <button onclick="startRecording('drug-transcript','drug-status');" class="bg-emerald-600 hover:bg-emerald-700 text-white font-medium py-2.5 rounded-lg"><i class="fa-solid fa-play mr-1"></i>Start / บันทึกต่อ</button>
           <button onclick="checkDrugProgress()" class="bg-indigo-600 hover:bg-indigo-700 text-white font-medium py-2.5 rounded-lg">ตรวจสอบ</button>
           <button onclick="stopRecording()" class="bg-amber-500 hover:bg-amber-600 text-white font-medium py-2.5 rounded-lg">Stop</button>
           <button id="drugNextBtn" onclick="addNextDrug()" style="display:none" class="bg-slate-800 hover:bg-slate-900 text-white font-medium py-2.5 rounded-lg">ยาตัวถัดไป</button>
         </div>
+        <div class="text-xs text-slate-500 mt-2">💡 Stop = หยุดชั่วคราว / Start = บันทึกต่อ · ยังไม่ส่งข้อมูลขึ้น Google Sheets</div>
         <div id="drug-status" class="mt-3 text-xs text-center py-2 rounded-lg bg-slate-100 text-slate-600">พร้อมบันทึกเสียง</div>
         <div class="mt-4"><h4 class="font-semibold text-slate-700 mb-2">📝 Transcript</h4><div id="drug-transcript" class="w-full h-48 p-3 bg-slate-50 border border-slate-200 rounded-lg text-sm overflow-y-auto">ข้อความจากการพูดจะแสดงที่นี่...</div></div>
         <div class="mt-4"><h4 class="font-semibold text-slate-700 mb-2">📋 Counseling Checklist</h4><div id="drugChecklist" class="space-y-2"></div><div id="drugScore" class="mt-3 text-lg font-bold text-indigo-700">Counseling Score: -</div></div>
@@ -521,9 +523,16 @@ if (!SpeechRecognitionAPI) {
 }
 
 function startRecording(transcriptId, statusId) {
+  const sameRecording = activeTranscriptId === transcriptId;
+
   activeTranscriptId = transcriptId;
   activeStatusId = statusId;
-  activeFinalText = "";
+
+  // Start ครั้งแรกจะเริ่มข้อความใหม่ แต่ Start หลัง Stop จะบันทึกต่อจากข้อความเดิม
+  if (!sameRecording) {
+    activeFinalText = "";
+  }
+
   userRequestedStop = false;
   manualStopRequested = false;
   speechFailed = false;
@@ -591,7 +600,7 @@ function finalizeStoppedRecording() {
     };
 
     document.getElementById("history-status").innerText =
-      "⏹ หยุดบันทึกแล้ว — เก็บข้อมูลซักประวัติไว้ใน Session";
+      "⏸ หยุดชั่วคราวแล้ว — ข้อความยังอยู่ใน Session (ยังไม่ส่งขึ้นระบบ)";
     document.getElementById("goToDrugBtn").style.display = "inline-block";
 
     const note = result.missing.length
@@ -652,8 +661,8 @@ function finalizeStoppedRecording() {
 
     document.getElementById("drug-status").innerText =
       result.missing.length
-        ? "⏹ หยุดบันทึกแล้ว — เก็บข้อมูลยานี้ไว้ใน Session (ยังมีหัวข้อที่ขาด)"
-        : "⏹ หยุดบันทึกแล้ว — คำแนะนำยาครบตาม Checklist";
+        ? "⏸ หยุดชั่วคราวแล้ว — เก็บข้อความยานี้ไว้ใน Session (ยังไม่ส่งขึ้นระบบ)"
+        : "⏸ หยุดชั่วคราวแล้ว — คำแนะนำยาครบตาม Checklist (ยังไม่ส่งขึ้นระบบ)";
 
     updateSelectedDrugList();
 
@@ -1049,14 +1058,14 @@ function loadDrugForReview(index) {
   document.getElementById('drug-status').innerText = 'พร้อมรีเช็ค ' + currentDrug.name;
   document.getElementById('currentDrugReview').innerHTML =
     '<b>💊 ยาตัวที่ ' + (index + 1) + ' / ' + plannedDrugs.length + ': ' + currentDrug.name + '</b>' +
-    '<div class="text-xs text-slate-500 mt-1">พูดคำแนะนำยาตามปกติ แล้วกด Stop เพื่อบันทึกผล</div>';
+    '<div class="text-xs text-slate-500 mt-1">พูดคำแนะนำยาตามปกติ กด Stop เพื่อหยุดชั่วคราว และกด Start / บันทึกต่อ เพื่อพูดต่อ</div>';
 
   displayChecklist(currentDrug.counseling, 'drugChecklist');
   updatePlannedDrugList();
   showModal(
     '💊 ' + currentDrug.name,
     '<p>เริ่มรีเช็คยาตัวนี้ได้เลย</p><ul>' + generalCounselingReminder.map(x => '<li>' + x + '</li>').join('') + '</ul>',
-    'กด Start แล้วพูดคำแนะนำ จากนั้นกด Stop เพื่อไปยังยาตัวถัดไป'
+    'กด Start / บันทึกต่อ เพื่อพูดต่อ และกด Stop เพื่อหยุดชั่วคราว'
   );
 }
 
@@ -1474,6 +1483,10 @@ function loadLog() {
   };
   document.body.appendChild(script);
 }
+
+</script>
+</body>
+</html>
 
 </script>
 </body>
