@@ -50,7 +50,7 @@ body { font-family: 'Sarabun', sans-serif; }
         <div id="history-status" class="text-xs text-center py-2 rounded-lg bg-slate-100 text-slate-600 font-medium">พร้อมบันทึกเสียง</div>
       </div>
       <div class="bg-white p-5 rounded-xl shadow-sm border border-slate-200 space-y-2">
-        <h3 class="font-semibold text-slate-700 flex items-center justify-between"><span><i class="fa-solid fa-align-left text-indigo-600 mr-2"></i>ข้อความจากการถอดเสียง</span><button onclick="clearTranscript(1)" class="text-xs text-slate-400 hover:text-red-500">ล้างข้อความ</button></h3>
+        <h3 class="font-semibold text-slate-700 flex items-center justify-between"><span><i class="fa-solid fa-align-left text-indigo-600 mr-2"></i>ข้อความจากการถอดเสียง</span><button onclick="clearHistoryTranscript()" class="text-xs text-slate-400 hover:text-red-500">ล้างข้อความ</button></h3>
         <div id="history-transcript" class="w-full h-64 p-3 bg-slate-50 border border-slate-200 rounded-lg text-sm overflow-y-auto leading-relaxed">ข้อความจากการพูดจะแสดงที่นี่...</div>
       </div>
     </div>
@@ -68,16 +68,25 @@ body { font-family: 'Sarabun', sans-serif; }
     <div class="space-y-4">
       <div class="bg-white p-5 rounded-xl shadow-sm border border-slate-200 space-y-3">
         <h3 class="font-semibold text-slate-700 border-b pb-2"><i class="fa-solid fa-pills text-indigo-600 mr-2"></i>กรอกชื่อยาที่จะจ่าย</h3>
-        <label class="block text-xs text-slate-500">พิมพ์ชื่อยา:</label>
-        <input type="text" id="drugInput" oninput="onDrugInputChange()" placeholder="เช่น Ibuprofen, Amoxicillin..." class="w-full p-2.5 border border-slate-300 rounded-lg text-sm focus:ring-2 focus:ring-indigo-500 focus:outline-none" autocomplete="off">
+        <label class="block text-xs text-slate-500">1) ใส่ชื่อยาให้ครบทุกตัวก่อน:</label>
+        <div class="flex gap-2">
+          <input type="text" id="drugInput" oninput="onDrugInputChange()" placeholder="เช่น Ibuprofen, Amoxicillin..." class="flex-1 w-full p-2.5 border border-slate-300 rounded-lg text-sm focus:ring-2 focus:ring-indigo-500 focus:outline-none" autocomplete="off">
+          <button id="addDrugBtn" onclick="addDrugToList()" class="bg-indigo-600 hover:bg-indigo-700 text-white px-4 rounded-lg font-medium whitespace-nowrap">+ เพิ่มยา</button>
+        </div>
         <datalist id="drugList"></datalist>
         <div id="drugInfoBox" class="hidden bg-indigo-50 border border-indigo-200 rounded-lg p-3 text-sm"><div class="font-bold text-indigo-800" id="drugInfoName"></div><p class="mt-1"><b>ข้อบ่งใช้:</b> <span id="drugInfoIndication"></span></p><p><b>ขนาดยา:</b> <span id="drugInfoDosage"></span></p></div>
-        <div id="drugNotFound" class="hidden text-xs p-3 rounded-lg bg-amber-50 text-amber-700 border border-amber-200">⚠️ ไม่พบยานี้ในฐานข้อมูล</div>
-        <div><div class="text-xs font-semibold text-slate-600 mb-1.5">รายการยาที่เลือกไว้:</div><div id="selectedDrugList" class="space-y-1 min-h-[40px] p-2 bg-slate-50 border border-slate-200 rounded-lg"><span class="text-xs text-slate-400 italic">ยังไม่ได้เลือกรายการยา</span></div></div>
+        <div id="drugNotFound" class="hidden text-xs p-3 rounded-lg bg-amber-50 text-amber-700 border border-amber-200">⚠️ ไม่พบยานี้ในฐานข้อมูล กรุณาเลือกชื่อยาที่ระบบรองรับ</div>
+        <div>
+          <div class="text-xs font-semibold text-slate-600 mb-1.5">2) รายการยาที่จะรีเช็ค:</div>
+          <div id="selectedDrugList" class="space-y-1 min-h-[80px] p-2 bg-slate-50 border border-slate-200 rounded-lg"><span class="text-xs text-slate-400 italic">ยังไม่ได้เพิ่มรายการยา</span></div>
+        </div>
+        <button id="startDrugReviewBtn" onclick="startDrugReview()" disabled class="w-full bg-emerald-600 hover:bg-emerald-700 disabled:bg-slate-300 disabled:cursor-not-allowed text-white font-medium py-2.5 rounded-lg">🎙️ 3) เริ่มรีเช็คยา</button>
+        <p id="drugFlowStatus" class="text-xs text-slate-500 text-center">เพิ่มชื่อยาให้ครบก่อน แล้วจึงเริ่มรีเช็คทีละตัว</p>
       </div>
     </div>
     <div class="lg:col-span-2 space-y-4">
       <div id="drugCounselSection" class="hidden bg-white p-5 rounded-xl shadow-sm border border-slate-200">
+        <div id="currentDrugReview" class="mb-4 bg-indigo-50 border border-indigo-200 rounded-lg p-3">กำลังเตรียมรีเช็คยา...</div>
         <h3 class="font-semibold text-slate-700 border-b pb-2"><i class="fa-solid fa-microphone text-indigo-600 mr-2"></i>บันทึกเสียงการให้คำแนะนำ</h3>
         <div class="grid grid-cols-2 md:grid-cols-4 gap-2 mt-4">
           <button onclick="drug_finalTextReset(); startRecording('drug-transcript','drug-status');" class="bg-emerald-600 hover:bg-emerald-700 text-white font-medium py-2.5 rounded-lg"><i class="fa-solid fa-play mr-1"></i>Start</button>
@@ -574,6 +583,15 @@ function finalizeStoppedRecording() {
  
 function history_finalTextReset() { activeFinalText = ""; }
 function drug_finalTextReset() { activeFinalText = ""; }
+function clearHistoryTranscript() {
+  activeFinalText = "";
+  const el = document.getElementById("history-transcript");
+  if (el) el.innerText = "ข้อความจากการพูดจะแสดงที่นี่...";
+  const score = document.getElementById("historyScore");
+  if (score) score.innerText = "History Score: -";
+  displayChecklist(historyChecklist, "historyChecklist");
+  if (patientData) patientData.history = null;
+}
  
  
 // =====================================================
@@ -662,6 +680,7 @@ function createNewPatientSession() {
     sessionId: "S" + Date.now(),
     history: null,
     drugs: [],
+    plannedDrugs: [],
     dispensingSaved: false,
     serviceFinished: false
   };
@@ -671,13 +690,16 @@ function resetPatientSession() {
   patientData = createNewPatientSession();
   currentDrug = null;
   lastRemindedDrugName = null;
+  plannedDrugs = [];
+  currentDrugReviewIndex = -1;
+  drugReviewStarted = false;
   activeFinalText = "";
 
   const drugInput = document.getElementById("drugInput");
   if (drugInput) drugInput.value = "";
-  document.getElementById("drugInfoBox").classList.remove("show");
-  document.getElementById("drugNotFound").style.display = "none";
-  document.getElementById("drugCounselSection").style.display = "none";
+  document.getElementById("drugInfoBox").classList.add("hidden");
+  document.getElementById("drugNotFound").classList.add("hidden");
+  document.getElementById("drugCounselSection").classList.add("hidden");
 
   document.getElementById("history-transcript").innerText = "ยังไม่มีข้อความ";
   document.getElementById("historyScore").innerText = "History Score: -";
@@ -689,6 +711,13 @@ function resetPatientSession() {
   document.getElementById("drugScore").innerText = "Counseling Score: -";
   document.getElementById("drug-status").innerText = "สถานะ: พร้อมใช้งาน";
   document.getElementById("drugNextBtn").style.display = "none";
+  document.getElementById("startDrugReviewBtn").disabled = true;
+  document.getElementById("startDrugReviewBtn").classList.remove("hidden");
+  document.getElementById("addDrugBtn").disabled = false;
+  document.getElementById("drugInput").disabled = false;
+  document.getElementById("drugFlowStatus").innerText = "เพิ่มชื่อยาให้ครบก่อน แล้วจึงเริ่มรีเช็คทีละตัว";
+  document.getElementById("drugCounselSection").classList.add("hidden");
+  updatePlannedDrugList();
   updateSelectedDrugList();
 }
 
@@ -731,15 +760,18 @@ function checkHistoryProgress() {
 // =====================================================
 let currentDrug = null;
 let lastRemindedDrugName = null;
- 
-// 4 หัวข้อหลักที่ต้องให้คำแนะนำเสมอ ไม่ว่าจะเป็นยาอะไร (ตามเอกสาร)
+let plannedDrugs = [];
+let currentDrugReviewIndex = -1;
+let drugReviewStarted = false;
+
+// 4 หัวข้อหลักที่ต้องให้คำแนะนำเสมอ
 const generalCounselingReminder = [
   "อธิบายวิธีใช้ยา",
   "แจ้งผลข้างเคียง",
   "การเก็บรักษายา",
   "การรักษาโดยไม่ใช้ยา / การดูแลตนเอง"
 ];
- 
+
 function findDrug(query) {
   const q = query.trim().toLowerCase();
   if (!q) return null;
@@ -751,53 +783,150 @@ function findDrug(query) {
     d.aliases.some(a => a.toLowerCase().includes(q))
   );
 }
- 
+
 function onDrugInputChange() {
+  if (drugReviewStarted) return;
   const query = document.getElementById('drugInput').value;
   const drug = findDrug(query);
- 
   const infoBox = document.getElementById('drugInfoBox');
   const notFoundBox = document.getElementById('drugNotFound');
-  const counselSection = document.getElementById('drugCounselSection');
- 
+
   if (!query.trim()) {
-    infoBox.classList.remove('show');
-    notFoundBox.style.display = "none";
-    counselSection.style.display = "none";
+    infoBox.classList.add('hidden');
+    notFoundBox.classList.add('hidden');
     currentDrug = null;
     return;
   }
- 
+
   if (drug) {
     currentDrug = drug;
     document.getElementById('drugInfoName').innerText = drug.name;
     document.getElementById('drugInfoIndication').innerText = drug.indication;
     document.getElementById('drugInfoDosage').innerText = drug.dosage;
-    infoBox.classList.add('show');
-    notFoundBox.style.display = "none";
- 
-    displayChecklist(drug.counseling, "drugChecklist");
-    document.getElementById('drugScore').innerText = "Counseling Score: -";
-    document.getElementById('drug-transcript').innerText = "ยังไม่มีข้อความ";
-    counselSection.style.display = "block";
- 
-    if (lastRemindedDrugName !== drug.name) {
-      lastRemindedDrugName = drug.name;
-      showModal(
-        "💊 " + drug.name,
-        "<p>อย่าลืมพูดให้คำแนะนำครบทั้ง 4 หัวข้อนี้:</p>" +
-        "<ul>" + generalCounselingReminder.map(x => "<li>" + x + "</li>").join("") + "</ul>",
-        "กดเริ่มบันทึกเสียงแล้วเริ่มให้คำแนะนำได้เลย"
-      );
-    }
+    infoBox.classList.remove('hidden');
+    notFoundBox.classList.add('hidden');
   } else {
     currentDrug = null;
-    infoBox.classList.remove('show');
-    notFoundBox.style.display = "block";
-    counselSection.style.display = "none";
+    infoBox.classList.add('hidden');
+    notFoundBox.classList.remove('hidden');
   }
 }
- 
+
+function addDrugToList() {
+  if (drugReviewStarted) {
+    alert("เริ่มรีเช็คยาแล้ว ไม่สามารถเพิ่มรายการยาในรอบนี้ได้");
+    return;
+  }
+
+  const input = document.getElementById('drugInput');
+  const drug = findDrug(input.value);
+  if (!drug) {
+    alert("กรุณาเลือก/พิมพ์ชื่อยาที่มีอยู่ในฐานข้อมูลก่อน");
+    return;
+  }
+
+  if (plannedDrugs.some(d => d.name === drug.name)) {
+    alert("ยานี้ถูกเพิ่มในรายการแล้ว");
+    return;
+  }
+
+  plannedDrugs.push(drug);
+  input.value = '';
+  currentDrug = null;
+  document.getElementById('drugInfoBox').classList.add('hidden');
+  document.getElementById('drugNotFound').classList.add('hidden');
+  document.getElementById('startDrugReviewBtn').disabled = false;
+  document.getElementById('drugFlowStatus').innerText =
+    "เพิ่มแล้ว " + plannedDrugs.length + " รายการ — เพิ่มยาได้อีก หรือกด 'เริ่มรีเช็คยา'";
+  updatePlannedDrugList();
+  input.focus();
+}
+
+function updatePlannedDrugList() {
+  const container = document.getElementById('selectedDrugList');
+  if (!container) return;
+  if (!plannedDrugs.length) {
+    container.innerHTML = '<span class="text-xs text-slate-400 italic">ยังไม่ได้เพิ่มรายการยา</span>';
+    return;
+  }
+
+  container.innerHTML = plannedDrugs.map(function(drug, index) {
+    const saved = patientData.drugs.some(d => d.drugName === drug.name);
+    const active = index === currentDrugReviewIndex && drugReviewStarted;
+    return `
+      <div class="flex items-center justify-between gap-2 p-2 rounded-lg border ${active ? 'border-indigo-400 bg-indigo-50' : 'border-slate-200 bg-white'}">
+        <div><b>💊 ${index + 1}. ${drug.name}</b><div class="text-xs text-slate-500">${saved ? '✅ รีเช็คแล้ว' : active ? '🎙️ กำลังรีเช็ค' : 'รอรีเช็ค'}</div></div>
+        ${!drugReviewStarted ? `<button onclick="removeDrugFromList(${index})" class="text-xs text-red-500 hover:text-red-700">ลบ</button>` : ''}
+      </div>`;
+  }).join('');
+}
+
+function removeDrugFromList(index) {
+  if (drugReviewStarted) return;
+  plannedDrugs.splice(index, 1);
+  document.getElementById('startDrugReviewBtn').disabled = plannedDrugs.length === 0;
+  updatePlannedDrugList();
+}
+
+function startDrugReview() {
+  if (!plannedDrugs.length) {
+    alert("กรุณาใส่ชื่อยาให้ครบอย่างน้อย 1 ตัวก่อน");
+    return;
+  }
+  if (drugReviewStarted) return;
+
+  drugReviewStarted = true;
+  currentDrugReviewIndex = 0;
+  document.getElementById('drugInput').disabled = true;
+  document.getElementById('addDrugBtn').disabled = true;
+  document.getElementById('startDrugReviewBtn').classList.add('hidden');
+  document.getElementById('drugFlowStatus').innerText =
+    "กำลังรีเช็คยา " + (currentDrugReviewIndex + 1) + " / " + plannedDrugs.length;
+
+  loadDrugForReview(currentDrugReviewIndex);
+}
+
+function loadDrugForReview(index) {
+  if (index < 0 || index >= plannedDrugs.length) return;
+  currentDrugReviewIndex = index;
+  currentDrug = plannedDrugs[index];
+  activeFinalText = '';
+  lastRemindedDrugName = currentDrug.name;
+
+  document.getElementById('drugInfoName').innerText = currentDrug.name;
+  document.getElementById('drugInfoIndication').innerText = currentDrug.indication;
+  document.getElementById('drugInfoDosage').innerText = currentDrug.dosage;
+  document.getElementById('drugInfoBox').classList.remove('hidden');
+  document.getElementById('drugNotFound').classList.add('hidden');
+  document.getElementById('drugCounselSection').classList.remove('hidden');
+  document.getElementById('drug-transcript').innerText = 'ข้อความจากการพูดจะแสดงที่นี่...';
+  document.getElementById('drugScore').innerText = 'Counseling Score: -';
+  document.getElementById('drug-status').innerText = 'พร้อมรีเช็ค ' + currentDrug.name;
+  document.getElementById('currentDrugReview').innerHTML =
+    '<b>💊 ยาตัวที่ ' + (index + 1) + ' / ' + plannedDrugs.length + ': ' + currentDrug.name + '</b>' +
+    '<div class="text-xs text-slate-500 mt-1">พูดคำแนะนำยาตามปกติ แล้วกด Stop เพื่อบันทึกผล</div>';
+
+  displayChecklist(currentDrug.counseling, 'drugChecklist');
+  updatePlannedDrugList();
+  showModal(
+    '💊 ' + currentDrug.name,
+    '<p>เริ่มรีเช็คยาตัวนี้ได้เลย</p><ul>' + generalCounselingReminder.map(x => '<li>' + x + '</li>').join('') + '</ul>',
+    'กด Start แล้วพูดคำแนะนำ จากนั้นกด Stop เพื่อไปยังยาตัวถัดไป'
+  );
+}
+
+function checkDrugProgress() {
+  if (!currentDrug) { alert('กรุณาเริ่มรีเช็คยาก่อน'); return; }
+  if (!activeFinalText.trim()) { alert('ยังไม่มีข้อความเสียง กรุณากดเริ่มบันทึกเสียงก่อน'); return; }
+  const result = checkChecklist(activeFinalText, currentDrug.counseling, 'drugChecklist');
+  document.getElementById('drugScore').innerText = 'Counseling Score: ' + result.score + '%';
+  showModal(
+    'ผลการตรวจสอบคำแนะนำยา',
+    result.missing.length ? '<p>หัวข้อที่ยังขาด:</p>' + missingListHtml(result.missing) : '<p>Checklist ครบถ้วนแล้ว ✅</p>',
+    'ผลนี้เป็นการรีเช็คเท่านั้น สามารถไปต่อได้แม้มีหัวข้อที่ขาด'
+  );
+}
+
 function checkDrugProgress() {
   if (!currentDrug) {
     alert("กรุณาเลือกชื่อยาก่อน");
@@ -828,55 +957,30 @@ function checkDrugProgress() {
 }
 
 function updateSelectedDrugList() {
-  const container = document.getElementById("selectedDrugList");
-  if (!container) return;
-
-  if (!patientData.drugs.length) {
-    container.innerHTML = "<p style='color:#666;'>ยังไม่ได้เพิ่มยา</p>";
-    return;
-  }
-
-  container.innerHTML = patientData.drugs.map(function(drug, index) {
-    return `
-      <div style="padding:12px;margin:8px 0;background:white;border-radius:10px;border:1px solid #ddd;">
-        <b>💊 ${index + 1}. ${drug.drugName}</b>
-        <div style="margin-top:5px;">คะแนนคำแนะนำ: <b>${drug.score}%</b></div>
-        <div style="color:#00a884;margin-top:5px;">✅ ตรวจสอบคำแนะนำแล้ว</div>
-      </div>
-    `;
-  }).join("");
+  updatePlannedDrugList();
 }
 
 function addNextDrug() {
-  if (!currentDrug) {
-    alert("กรุณาคีย์ชื่อยาก่อน");
+  if (!drugReviewStarted) {
+    alert("กรุณาใส่ชื่อยาให้ครบก่อน แล้วกด 'เริ่มรีเช็คยา'");
     return;
   }
-
-  const savedCurrentDrug = patientData.drugs.some(
-    d => d.drugName === currentDrug.name
-  );
-
-  if (!savedCurrentDrug) {
-    alert("กรุณากด 'หยุดบันทึก' หลังให้คำแนะนำยา เพื่อบันทึกยานี้ก่อนเพิ่มยาตัวถัดไป");
+  if (!currentDrug) return;
+  if (!patientData.drugs.some(d => d.drugName === currentDrug.name)) {
+    alert("กรุณากด Stop เพื่อบันทึกผลของยาตัวปัจจุบันก่อน");
     return;
   }
-
-  document.getElementById("drugInput").value = "";
-  document.getElementById("drugInfoBox").classList.remove("show");
-  document.getElementById("drugNotFound").style.display = "none";
-  document.getElementById("drugCounselSection").style.display = "none";
-  document.getElementById("drug-transcript").innerText = "ยังไม่มีข้อความ";
-  document.getElementById("drugScore").innerText = "Counseling Score: -";
-  document.getElementById("drug-status").innerText = "สถานะ: พร้อมคีย์ยาตัวถัดไป";
-
-  currentDrug = null;
-  activeFinalText = "";
-  lastRemindedDrugName = null;
-  patientData.dispensingSaved = false;
-
-  updateSelectedDrugList();
-  document.getElementById("drugInput").focus();
+  const nextIndex = currentDrugReviewIndex + 1;
+  if (nextIndex >= plannedDrugs.length) {
+    document.getElementById('drugNextBtn').style.display = 'none';
+    document.getElementById('drugFlowStatus').innerText = '🎉 รีเช็คยาครบทุกตัวแล้ว';
+    document.getElementById('drugCounselSection').classList.add('hidden');
+    currentDrug = null;
+    updatePlannedDrugList();
+    return;
+  }
+  loadDrugForReview(nextIndex);
+  document.getElementById('drugNextBtn').style.display = 'none';
 }
 
 function saveDispensing() {
@@ -961,7 +1065,7 @@ function finishService() {
     setTimeout(function() {
       closeModal();
       resetPatientSession();
-      showView('view-home');
+      switchTab(1);
     }, 1200);
   });
 }
@@ -1065,8 +1169,5 @@ function loadLog() {
 
 
 </script>
-</body>
-</html>
-
 </body>
 </html>
