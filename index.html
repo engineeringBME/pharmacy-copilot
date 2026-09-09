@@ -49,6 +49,9 @@ body { font-family: 'Sarabun', sans-serif; }
       <button onclick="switchTab(1)" id="nav-btn-1" class="px-4 py-2 rounded-lg text-sm font-medium transition bg-indigo-700 text-white shadow"><i class="fa-solid fa-clipboard-question mr-1.5"></i>1. ซักประวัติ</button>
       <button onclick="switchTab(2)" id="nav-btn-2" class="px-4 py-2 rounded-lg text-sm font-medium transition hover:bg-indigo-800 text-indigo-100"><i class="fa-solid fa-capsules mr-1.5"></i>2. คำแนะนำยา</button>
       <button onclick="switchTab(3)" id="nav-btn-3" class="px-4 py-2 rounded-lg text-sm font-medium transition hover:bg-indigo-800 text-indigo-100"><i class="fa-solid fa-chart-line mr-1.5"></i>Dashboard</button>
+      <button onclick="logoutPharmacist()" class="px-4 py-2 rounded-lg text-sm font-medium transition bg-red-500 hover:bg-red-600 text-white shadow" title="ออกจากระบบ">
+        <i class="fa-solid fa-right-from-bracket mr-1.5"></i>ล็อกเอาท์
+      </button>
     </nav>
   </div>
 </header>
@@ -215,6 +218,39 @@ function startPharmacistSession() {
   document.getElementById("currentPharmacist").innerText = name;
   document.getElementById("login-page").style.display = "none";
   document.getElementById("app-shell").style.display = "block";
+}
+
+function logoutPharmacist() {
+  const hasUnsavedData =
+    (typeof patientData !== "undefined" && patientData &&
+      (patientData.history ||
+       (patientData.drugs && patientData.drugs.length > 0) ||
+       (patientData.plannedDrugs && patientData.plannedDrugs.length > 0)));
+
+  let message = "ต้องการออกจากระบบของเภสัชกร " + (currentPharmacist || "") + " ใช่หรือไม่?";
+
+  if (hasUnsavedData) {
+    message += "\n\n⚠️ มีข้อมูลผู้ป่วยที่ยังไม่ได้กด ‘เสร็จสิ้นการให้บริการ’\nหากออกจากระบบ ข้อมูลที่ยังไม่ได้บันทึกจะหายไป";
+  }
+
+  if (!confirm(message)) return;
+
+  if (typeof resetPatientSession === "function") {
+    resetPatientSession();
+  }
+
+  currentPharmacist = "";
+
+  const currentName = document.getElementById("currentPharmacist");
+  if (currentName) currentName.innerText = "-";
+
+  const input = document.getElementById("pharmacistNameInput");
+  if (input) input.value = "";
+
+  document.getElementById("app-shell").style.display = "none";
+  document.getElementById("login-page").style.display = "flex";
+
+  if (input) input.focus();
 }
 
 document.addEventListener("DOMContentLoaded", function() {
