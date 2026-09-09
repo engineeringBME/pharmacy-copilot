@@ -209,7 +209,7 @@
         </div>
       </div>
  
-      <div class="menu-card" onclick="showView('view-drug')">
+      <div class="menu-card" onclick="openDrugView()">
         <div class="icon">💊</div>
         <div>
           <div class="title">2. คีย์ชื่อยา / ตรวจการให้คำแนะนำ</div>
@@ -250,8 +250,8 @@
     <div class="score" id="historyScore">History Score: -</div>
  
     <div style="margin-top:20px; padding:15px; background:#f1f2f6; border-radius:10px;">
-      เมื่อซักประวัติเสร็จและกดบันทึกแล้ว กด
-      <button class="btn-back" style="margin:0" onclick="showView('view-home')">⬅ กลับหน้าแรกเพื่อคีย์ชื่อยา</button>
+      เมื่อซักประวัติครบแล้ว ระบบจะเก็บข้อมูลไว้ใน Session ของผู้ป่วยคนนี้
+      จากนั้นสามารถไปคีย์ยาและให้คำแนะนำยาได้
     </div>
   </div>
  
@@ -281,15 +281,24 @@
       <button class="btn-record" onclick="startRecording('drug-transcript','drug-status'); drug_finalTextReset();">🎙️ เริ่มบันทึกเสียง</button>
       <button class="btn-primary" onclick="checkDrugProgress()">➡️ NEXT (ตรวจสอบหัวข้อที่ยังขาด)</button>
       <button class="btn-stop" onclick="stopRecording()">⏹ หยุดบันทึก</button>
- 
+
       <div id="drug-status" class="statusBox">สถานะ: พร้อมใช้งาน</div>
- 
+
       <h3>📝 Transcript</h3>
       <div id="drug-transcript" class="transcript">ยังไม่มีข้อความ</div>
- 
+
       <h3>📋 Counseling Checklist (เฉพาะยานี้)</h3>
       <div id="drugChecklist" class="checklist"></div>
       <div class="score" id="drugScore">Counseling Score: -</div>
+
+      <div style="margin-top:20px; padding:15px; background:#f1f2f6; border-radius:10px;">
+        <h3 style="margin-top:0;">💊 รายการยาของผู้ป่วย</h3>
+        <div id="selectedDrugList"></div>
+
+        <button class="btn-primary" onclick="addNextDrug()">➕ เพิ่มยาตัวถัดไป</button>
+        <button class="btn-primary" onclick="saveDispensing()">💾 บันทึกการจ่ายยา</button>
+        <button class="btn-refresh" onclick="finishService()">✅ เสร็จสิ้นการให้บริการ</button>
+      </div>
     </div>
   </div>
  
@@ -309,6 +318,7 @@
         <thead>
           <tr>
             <th>วันที่</th>
+            <th>Session ID</th>
             <th>ประเภท</th>
             <th>ยา</th>
             <th>คะแนน</th>
@@ -704,36 +714,85 @@ displayChecklist(historyChecklist, "historyChecklist");
 // SAVE TO GOOGLE SHEETS (JSONP)
 // =====================================================
 function saveToGoogleSheet(type, drugName, transcript, score, missingList, onDone) {
-  const sessionId = "S" + Date.now();
- 
+  // ฟังก์ชันเดิมเก็บไว้สำหรับ compatibility แต่ flow ใหม่
+  // จะส่งข้อมูลจริงขึ้น Sheet ตอน "เสร็จสิ้นการให้บริการ" เท่านั้น
   const params = new URLSearchParams({
     action: "save",
     callback: "pharmaCallback",
-    sessionId: sessionId,
+    sessionId: patientData.sessionId,
     type: type,
     drugName: drugName || "",
-    transcript: transcript,
+    transcript: transcript || "",
     score: score,
-    missing: missingList.join(" | ")
+    missing: (missingList || []).join(" | ")
   });
- 
-  window.pharmaCallback = function (response) {
-    console.log("Apps Script response:", response);
-    if (onDone) onDone(response && response.success);
+
+  window.pharmaCallback = function(response) {
+    if (onDone) onDone(!!(response && response.success));
   };
- 
-  const script = document.createElement('script');
+
+  const script = document.createElement("script");
   script.src = API_URL + "?" + params.toString();
-  script.onload = function () { script.remove(); };
-  script.onerror = function () {
-    console.error("ส่งข้อมูลไป Apps Script ไม่สำเร็จ");
+  script.onload = function() { script.remove(); };
+  script.onerror = function() {
     if (onDone) onDone(false);
+    delete window.pharmaCallback;
     script.remove();
   };
   document.body.appendChild(script);
 }
- 
- 
+
+// =====================================================
+// PATIENT SESSION
+// 1 ผู้ป่วย = 1 Session_ID
+// เก็บ history + ยาทั้งหมดไว้ใน browser ก่อน
+// และส่งขึ้น Google Sheets เป็นชุดเดียวเมื่อจบผู้ป่วย
+// =====================================================
+let patientData = createNewPatientSession();
+
+function createNewPatientSession() {
+  return {
+    sessionId: "S" + Date.now(),
+    history: null,
+    drugs: [],
+    dispensingSaved: false,
+    serviceFinished: false
+  };
+}
+
+function resetPatientSession() {
+  patientData = createNewPatientSession();
+  currentDrug = null;
+  lastRemindedDrugName = null;
+  activeFinalText = "";
+
+  const drugInput = document.getElementById("drugInput");
+  if (drugInput) drugInput.value = "";
+  document.getElementById("drugInfoBox").classList.remove("show");
+  document.getElementById("drugNotFound").style.display = "none";
+  document.getElementById("drugCounselSection").style.display = "none";
+
+  document.getElementById("history-transcript").innerText = "ยังไม่มีข้อความ";
+  document.getElementById("historyScore").innerText = "History Score: -";
+  document.getElementById("history-status").innerText = "สถานะ: พร้อมใช้งาน";
+  displayChecklist(historyChecklist, "historyChecklist");
+
+  document.getElementById("drug-transcript").innerText = "ยังไม่มีข้อความ";
+  document.getElementById("drugScore").innerText = "Counseling Score: -";
+  document.getElementById("drug-status").innerText = "สถานะ: พร้อมใช้งาน";
+  updateSelectedDrugList();
+}
+
+function openDrugView() {
+  if (!patientData.history) {
+    alert("กรุณาซักประวัติผู้ป่วยและตรวจสอบให้ครบก่อนคีย์ยา");
+    showView("view-history");
+    return;
+  }
+  showView("view-drug");
+  updateSelectedDrugList();
+}
+
 // =====================================================
 // FLOW 1: HISTORY TAKING
 // กด NEXT กี่ครั้งก็ได้ระหว่างพูด (ไม่หยุดอัดเสียง) จนกว่าจะครบทุกหัวข้อ
@@ -744,23 +803,31 @@ function checkHistoryProgress() {
     alert("ยังไม่มีข้อความเสียง กรุณากดเริ่มบันทึกเสียงก่อน");
     return;
   }
- 
+
   const result = checkChecklist(activeFinalText, historyChecklist, "historyChecklist");
-  document.getElementById('historyScore').innerText = "History Score: " + result.score + "%";
- 
+  document.getElementById("historyScore").innerText = "History Score: " + result.score + "%";
+
   if (result.missing.length === 0) {
-    document.getElementById('history-status').innerText = "🔍 ครบถ้วนแล้ว กำลังบันทึกข้อมูล...";
     stopRecording();
- 
-    saveToGoogleSheet("history", "", activeFinalText, result.score, result.missing, (ok) => {
-      document.getElementById('history-status').innerText = ok
-        ? "✅ บันทึกข้อมูลลง Google Sheets แล้ว — กลับหน้าแรกเพื่อคีย์ชื่อยาได้เลย"
-        : "⚠️ ไม่สามารถบันทึก Google Sheets";
-    });
- 
-    showModal("ซักประวัติครบถ้วนแล้ว ✅", "<p>บันทึกข้อมูลเรียบร้อยแล้ว กลับหน้าแรกเพื่อคีย์ชื่อยาได้เลยครับ/ค่ะ</p>");
+
+    patientData.history = {
+      transcript: activeFinalText.trim(),
+      score: result.score,
+      missing: result.missing
+    };
+
+    document.getElementById("history-status").innerText =
+      "✅ ซักประวัติครบแล้ว — เก็บไว้ใน Session ชั่วคราว";
+
+    showModal(
+      "ซักประวัติครบถ้วนแล้ว ✅",
+      "<p>ข้อมูลซักประวัติถูกเก็บไว้ใน Session ของผู้ป่วยคนนี้แล้ว</p>" +
+      "<p><b>ยังไม่ได้ส่งขึ้น Google Sheets</b></p>",
+      "ไปคีย์ชื่อยาเพื่อดำเนินการต่อได้เลย"
+    );
   } else {
-    document.getElementById('history-status').innerText = "🎙️ กำลังฟังต่อ — ยังมีหัวข้อที่ยังไม่ได้ถาม";
+    document.getElementById("history-status").innerText =
+      "🎙️ กำลังฟังต่อ — ยังมีหัวข้อที่ยังไม่ได้ถาม";
     showModal(
       "หัวข้อที่ยังไม่ได้ถาม ⚠️ (" + result.missing.length + " ข้อ)",
       missingListHtml(result.missing),
@@ -768,8 +835,7 @@ function checkHistoryProgress() {
     );
   }
 }
- 
- 
+
 // =====================================================
 // FLOW 2: DRUG COUNSELING
 // =====================================================
@@ -847,36 +913,251 @@ function checkDrugProgress() {
     alert("กรุณาเลือกชื่อยาก่อน");
     return;
   }
+
   if (!activeFinalText.trim()) {
     alert("ยังไม่มีข้อความเสียง กรุณากดเริ่มบันทึกเสียงก่อน");
     return;
   }
- 
-  const result = checkChecklist(activeFinalText, currentDrug.counseling, "drugChecklist");
-  document.getElementById('drugScore').innerText = "Counseling Score: " + result.score + "%";
- 
-  if (result.missing.length === 0) {
-    document.getElementById('drug-status').innerText = "🔍 ครบถ้วนแล้ว กำลังบันทึกข้อมูล...";
-    stopRecording();
- 
-    saveToGoogleSheet("counseling", currentDrug.name, activeFinalText, result.score, result.missing, (ok) => {
-      document.getElementById('drug-status').innerText = ok
-        ? "✅ บันทึกข้อมูลลง Google Sheets แล้ว"
-        : "⚠️ ไม่สามารถบันทึก Google Sheets";
-    });
- 
-    showModal("ให้คำแนะนำครบถ้วนแล้ว ✅", "<p>บันทึกข้อมูลเรียบร้อยแล้ว</p>");
-  } else {
-    document.getElementById('drug-status').innerText = "🎙️ กำลังฟังต่อ — ยังมีหัวข้อที่ยังไม่ได้พูด";
+
+  const result = checkChecklist(
+    activeFinalText,
+    currentDrug.counseling,
+    "drugChecklist"
+  );
+
+  document.getElementById("drugScore").innerText =
+    "Counseling Score: " + result.score + "%";
+
+  if (result.missing.length > 0) {
+    document.getElementById("drug-status").innerText =
+      "🎙️ กำลังฟังต่อ — ยังมีหัวข้อที่ยังไม่ได้พูด";
+
     showModal(
       "หัวข้อที่ยังไม่ได้พูด ⚠️ (" + result.missing.length + " ข้อ)",
       missingListHtml(result.missing),
       "ระบบยังฟังอยู่ พูดคำแนะนำที่ขาดต่อได้เลย แล้วกด NEXT อีกครั้ง"
     );
+    return;
   }
+
+  stopRecording();
+
+  const drugRecord = {
+    drugName: currentDrug.name,
+    transcript: activeFinalText.trim(),
+    score: result.score,
+    missing: result.missing
+  };
+
+  const existingIndex = patientData.drugs.findIndex(
+    d => d.drugName === drugRecord.drugName
+  );
+
+  if (existingIndex >= 0) {
+    patientData.drugs[existingIndex] = drugRecord;
+  } else {
+    patientData.drugs.push(drugRecord);
+  }
+
+  patientData.dispensingSaved = false;
+
+  document.getElementById("drug-status").innerText =
+    "✅ ให้คำแนะนำยานี้ครบแล้ว — เก็บไว้ใน Session ชั่วคราว";
+
+  updateSelectedDrugList();
+
+  showModal(
+    "ให้คำแนะนำ " + currentDrug.name + " ครบแล้ว ✅",
+    "<p>ข้อมูลยานี้ถูกเก็บไว้ใน Session ของผู้ป่วยแล้ว</p>" +
+    "<p><b>ยังไม่ได้ส่งขึ้น Google Sheets</b></p>",
+    "สามารถเพิ่มยาตัวถัดไป หรือกดบันทึกการจ่ายยาได้"
+  );
 }
- 
- 
+
+function updateSelectedDrugList() {
+  const container = document.getElementById("selectedDrugList");
+  if (!container) return;
+
+  if (!patientData.drugs.length) {
+    container.innerHTML = "<p style='color:#666;'>ยังไม่ได้เพิ่มยา</p>";
+    return;
+  }
+
+  container.innerHTML = patientData.drugs.map(function(drug, index) {
+    return `
+      <div style="padding:12px;margin:8px 0;background:white;border-radius:10px;border:1px solid #ddd;">
+        <b>💊 ${index + 1}. ${drug.drugName}</b>
+        <div style="margin-top:5px;">คะแนนคำแนะนำ: <b>${drug.score}%</b></div>
+        <div style="color:#00a884;margin-top:5px;">✅ ตรวจสอบคำแนะนำแล้ว</div>
+      </div>
+    `;
+  }).join("");
+}
+
+function addNextDrug() {
+  if (!currentDrug) {
+    alert("กรุณาคีย์ชื่อยาก่อน");
+    return;
+  }
+
+  const savedCurrentDrug = patientData.drugs.some(
+    d => d.drugName === currentDrug.name
+  );
+
+  if (!savedCurrentDrug) {
+    alert("กรุณาให้คำแนะนำและกด NEXT จนระบบตรวจว่ายานี้ครบก่อน");
+    return;
+  }
+
+  document.getElementById("drugInput").value = "";
+  document.getElementById("drugInfoBox").classList.remove("show");
+  document.getElementById("drugNotFound").style.display = "none";
+  document.getElementById("drugCounselSection").style.display = "none";
+  document.getElementById("drug-transcript").innerText = "ยังไม่มีข้อความ";
+  document.getElementById("drugScore").innerText = "Counseling Score: -";
+  document.getElementById("drug-status").innerText = "สถานะ: พร้อมคีย์ยาตัวถัดไป";
+
+  currentDrug = null;
+  activeFinalText = "";
+  lastRemindedDrugName = null;
+  patientData.dispensingSaved = false;
+
+  updateSelectedDrugList();
+  document.getElementById("drugInput").focus();
+}
+
+function saveDispensing() {
+  if (!patientData.history) {
+    alert("ยังไม่มีข้อมูลซักประวัติที่ตรวจสอบครบ");
+    return;
+  }
+
+  if (patientData.drugs.length === 0) {
+    alert("กรุณาคีย์ยาและตรวจสอบคำแนะนำอย่างน้อย 1 รายการ");
+    return;
+  }
+
+  if (currentDrug) {
+    const currentSaved = patientData.drugs.some(
+      d => d.drugName === currentDrug.name
+    );
+    if (!currentSaved) {
+      alert("ยาตัวปัจจุบันยังตรวจสอบไม่ครบ กรุณากด NEXT ก่อน");
+      return;
+    }
+  }
+
+  patientData.dispensingSaved = true;
+  document.getElementById("drug-status").innerText =
+    "💾 บันทึกการจ่ายยาแล้ว — พร้อมเสร็จสิ้นการให้บริการ";
+
+  showModal(
+    "บันทึกการจ่ายยาแล้ว ✅",
+    "<p>ผู้ป่วยรายนี้มีรายการยา <b>" + patientData.drugs.length + " รายการ</b></p>" +
+    "<p>ข้อมูลทั้งหมดอยู่ใน Session เดียวกัน</p>" +
+    "<p><b>ยังไม่ได้ส่งขึ้น Google Sheets</b></p>",
+    "เมื่อยืนยันข้อมูลเรียบร้อย ให้กด 'เสร็จสิ้นการให้บริการ'"
+  );
+}
+
+function finishService() {
+  if (!patientData.history) {
+    alert("กรุณาซักประวัติและตรวจสอบให้ครบก่อน");
+    return;
+  }
+
+  if (patientData.drugs.length === 0) {
+    alert("กรุณาคีย์ยาอย่างน้อย 1 รายการก่อนเสร็จสิ้นการให้บริการ");
+    return;
+  }
+
+  if (!patientData.dispensingSaved) {
+    alert("กรุณากด 'บันทึกการจ่ายยา' ก่อนเสร็จสิ้นการให้บริการ");
+    return;
+  }
+
+  const confirmed = confirm(
+    "ยืนยันเสร็จสิ้นการให้บริการ?\n\n" +
+    "Session: " + patientData.sessionId + "\n" +
+    "รายการยา " + patientData.drugs.length + " รายการ\n\n" +
+    "ระบบจะบันทึกซักประวัติ + ยาทั้งหมด\n" +
+    "เป็น Session เดียวกันใน Google Sheets"
+  );
+
+  if (!confirmed) return;
+
+  document.getElementById("drug-status").innerText =
+    "💾 กำลังบันทึกข้อมูลผู้ป่วยทั้งหมด...";
+
+  savePatientSessionToGoogleSheet(function(ok) {
+    if (!ok) {
+      document.getElementById("drug-status").innerText =
+        "⚠️ ไม่สามารถบันทึกข้อมูลผู้ป่วยได้";
+      alert("เกิดข้อผิดพลาดในการบันทึกข้อมูล\nกรุณาลอง 'เสร็จสิ้นการให้บริการ' อีกครั้ง");
+      return;
+    }
+
+    showModal(
+      "เสร็จสิ้นการให้บริการ ✅",
+      "<p>บันทึกข้อมูลผู้ป่วยเรียบร้อยแล้ว</p>" +
+      "<p>Session ID: <b>" + patientData.sessionId + "</b></p>" +
+      "<p>ซักประวัติ + ยา <b>" + patientData.drugs.length + " รายการ</b></p>",
+      "เริ่มผู้ป่วยรายใหม่ได้จากหน้าแรก"
+    );
+
+    setTimeout(function() {
+      closeModal();
+      resetPatientSession();
+      showView("view-home");
+    }, 1200);
+  });
+}
+
+function savePatientSessionToGoogleSheet(onDone) {
+  const records = [];
+
+  records.push({
+    type: "history",
+    drugName: "",
+    transcript: patientData.history.transcript,
+    score: patientData.history.score,
+    missing: patientData.history.missing
+  });
+
+  patientData.drugs.forEach(function(drug) {
+    records.push({
+      type: "counseling",
+      drugName: drug.drugName,
+      transcript: drug.transcript,
+      score: drug.score,
+      missing: drug.missing
+    });
+  });
+
+  const params = new URLSearchParams({
+    action: "saveBatch",
+    callback: "pharmaPatientBatchCallback",
+    sessionId: patientData.sessionId,
+    records: JSON.stringify(records)
+  });
+
+  window.pharmaPatientBatchCallback = function(response) {
+    console.log("Apps Script batch response:", response);
+    if (onDone) onDone(!!(response && response.success));
+  };
+
+  const script = document.createElement("script");
+  script.src = API_URL + "?" + params.toString();
+  script.onload = function() { script.remove(); };
+  script.onerror = function() {
+    console.error("ส่งข้อมูลผู้ป่วยไป Apps Script ไม่สำเร็จ");
+    if (onDone) onDone(false);
+    delete window.pharmaPatientBatchCallback;
+    script.remove();
+  };
+  document.body.appendChild(script);
+}
+
 // =====================================================
 // FLOW 3: LOG VIEW
 // =====================================================
@@ -907,6 +1188,7 @@ function loadLog() {
       const tr = document.createElement('tr');
       tr.innerHTML =
         "<td>" + row.date + "</td>" +
+        "<td>" + (row.sessionId || "-") + "</td>" +
         "<td>" + (row.type === "history" ? "ซักประวัติ" : "ให้คำแนะนำยา") + "</td>" +
         "<td>" + (row.drugName || "-") + "</td>" +
         "<td>" + row.score + "%</td>" +
@@ -930,5 +1212,3 @@ function loadLog() {
 </script>
 </body>
 </html>
-
-
