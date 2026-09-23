@@ -59,11 +59,11 @@ body { font-family: 'Sarabun', sans-serif; }
 <section id="view-history" class="view active space-y-6">
   <div id="consentPanel" class="bg-white p-4 rounded-xl shadow-sm border-2 border-amber-300 space-y-3">
     <h3 class="font-semibold text-slate-800 flex items-center"><i class="fa-solid fa-shield-halved text-amber-600 mr-2"></i>ขอความยินยอมบันทึกเสียงจากผู้ป่วย</h3>
-    <p class="text-sm text-slate-600 leading-relaxed">โปรดแจ้งผู้ป่วยว่าขั้นตอนซักประวัติและให้คำแนะนำยาในระบบนี้จะมีการบันทึกเสียงเพื่อการตรวจสอบคุณภาพบริการ<br>
+    <p class="text-sm text-slate-600 leading-relaxed">โปรดแจ้งผู้ป่วยว่าขั้นตอนซักประวัติและให้คำแนะนำยาในระบบนี้จะมีการบันทึกเสียงที่แปลงออกมาเป็นข้อความโดยจะไม่ได้มีเสียงของผู้ป่วยอยู่ในระบบเพื่อการตรวจสอบคุณภาพบริการ<br>
     <b>หากผู้ป่วยไม่ยินยอมให้บันทึกเสียง เภสัชกรยังคงให้บริการซักประวัติและจ่ายยาได้ตามปกติทุกประการ โดยจะเปลี่ยนมาบันทึกเป็นการพิมพ์ข้อความแทน</b></p>
     <div class="flex flex-col sm:flex-row gap-2">
       <button type="button" onclick="setRecordingConsent(true)" class="flex-1 bg-emerald-600 hover:bg-emerald-700 text-white font-medium py-2.5 rounded-lg">✅ ผู้ป่วยยินยอมให้บันทึกเสียง</button>
-      <button type="button" onclick="setRecordingConsent(false)" class="flex-1 bg-slate-500 hover:bg-slate-600 text-white font-medium py-2.5 rounded-lg">🚫 ผู้ป่วยไม่ยินยอม (พิมพ์แทน)</button>
+      <button type="button" onclick="setRecordingConsent(false)" class="flex-1 bg-slate-500 hover:bg-slate-600 text-white font-medium py-2.5 rounded-lg">🚫 ผู้ป่วยไม่ยินยอมให้บันทึกเสียง</button>
     </div>
   </div>
   <div id="consentStatusBar" class="hidden flex flex-col sm:flex-row items-start sm:items-center justify-between gap-2 bg-slate-50 border border-slate-200 rounded-lg px-4 py-2 text-sm">
