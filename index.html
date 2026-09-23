@@ -57,10 +57,34 @@ body { font-family: 'Sarabun', sans-serif; }
 <main class="max-w-7xl mx-auto px-4 py-6 flex-1 w-full">
 
 <section id="view-history" class="view active space-y-6">
+  <div id="consentPanel" class="bg-white p-4 rounded-xl shadow-sm border-2 border-amber-300 space-y-3">
+    <h3 class="font-semibold text-slate-800 flex items-center"><i class="fa-solid fa-shield-halved text-amber-600 mr-2"></i>ขอความยินยอมบันทึกเสียงจากผู้ป่วย</h3>
+    <p class="text-sm text-slate-600 leading-relaxed">โปรดแจ้งผู้ป่วยว่าขั้นตอนซักประวัติและให้คำแนะนำยาในระบบนี้จะมีการบันทึกเสียงเพื่อการตรวจสอบคุณภาพบริการ<br>
+    <b>หากผู้ป่วยไม่ยินยอมให้บันทึกเสียง เภสัชกรยังคงให้บริการซักประวัติและจ่ายยาได้ตามปกติทุกประการ โดยจะเปลี่ยนมาบันทึกเป็นการพิมพ์ข้อความแทน</b></p>
+    <div class="flex flex-col sm:flex-row gap-2">
+      <button type="button" onclick="setRecordingConsent(true)" class="flex-1 bg-emerald-600 hover:bg-emerald-700 text-white font-medium py-2.5 rounded-lg">✅ ผู้ป่วยยินยอมให้บันทึกเสียง</button>
+      <button type="button" onclick="setRecordingConsent(false)" class="flex-1 bg-slate-500 hover:bg-slate-600 text-white font-medium py-2.5 rounded-lg">🚫 ผู้ป่วยไม่ยินยอม (พิมพ์แทน)</button>
+    </div>
+  </div>
+  <div id="consentStatusBar" class="hidden flex flex-col sm:flex-row items-start sm:items-center justify-between gap-2 bg-slate-50 border border-slate-200 rounded-lg px-4 py-2 text-sm">
+    <span id="consentStatusText"></span>
+    <button type="button" onclick="reopenConsentPanel()" class="text-xs text-indigo-600 hover:underline whitespace-nowrap">เปลี่ยนการตั้งค่าความยินยอม</button>
+  </div>
   <div class="flex flex-col md:flex-row justify-between md:items-center gap-3 bg-white p-4 rounded-xl shadow-sm border border-slate-200">
     <div><h2 class="text-xl font-bold">ขั้นตอนที่ 1: เช็คลิสต์การซักประวัติผู้ป่วย</h2><p class="text-sm text-slate-500">กด Start เพื่อเริ่มบันทึกเสียง และกด Stop เมื่อสัมภาษณ์เสร็จ</p></div>
     <span id="counter-1" class="text-lg font-bold px-4 py-1.5 bg-indigo-50 text-indigo-700 rounded-full border border-indigo-200">0 / 17</span>
   </div>
+  <div id="noConsentPanel" class="hidden bg-white p-6 rounded-xl shadow-sm border-2 border-slate-300 text-center space-y-4">
+    <div class="text-4xl">🚫</div>
+    <h3 class="text-lg font-bold text-slate-800">ผู้ป่วยไม่ยินยอมให้บันทึกเสียง</h3>
+    <p class="text-sm text-slate-600 max-w-xl mx-auto">ระบบจะไม่บันทึกข้อมูลซักประวัติหรือคำแนะนำยาของผู้ป่วยรายนี้<br>
+    เภสัชกรสามารถให้บริการซักประวัติ ให้คำแนะนำ และจ่ายยาได้ตามปกตินอกระบบ<br>
+    เมื่อให้บริการเสร็จแล้ว กดปุ่มด้านล่างเพื่อไปยังผู้ป่วยรายถัดไป</p>
+    <button type="button" onclick="finishNoConsentService()" class="bg-emerald-600 hover:bg-emerald-700 text-white font-semibold py-3 px-6 rounded-lg shadow transition">
+      ✅ เสร็จสิ้นการให้บริการ — ไปยังผู้ป่วยรายถัดไป
+    </button>
+  </div>
+  <div id="historyWorkArea" class="hidden space-y-6">
   <div class="grid grid-cols-1 lg:grid-cols-3 gap-6">
     <div class="space-y-4">
       <div class="bg-white p-5 rounded-xl shadow-sm border border-slate-200 space-y-4">
@@ -85,6 +109,7 @@ body { font-family: 'Sarabun', sans-serif; }
       <div id="historyChecklist" class="space-y-2.5 max-h-[580px] overflow-y-auto pr-1"></div>
       <div id="historyScore" class="mt-4 text-lg font-bold text-indigo-700">History Score: -</div>
     </div>
+  </div>
   </div>
 </section>
 
@@ -859,7 +884,9 @@ function createNewPatientSession() {
     drugs: [],
     plannedDrugs: [],
     dispensingSaved: false,
-    serviceFinished: false
+    serviceFinished: false,
+    consent: null,          // null = ยังไม่ถาม, true = ยินยอมอัดเสียง, false = ไม่ยินยอม (พิมพ์แทน)
+    consentTimestamp: null
   };
 }
 
@@ -900,6 +927,71 @@ function resetPatientSession() {
   document.getElementById("drugCounselSection").classList.add("hidden");
   updatePlannedDrugList();
   updateSelectedDrugList();
+
+  // ผู้ป่วยรายใหม่ทุกครั้งต้องถามความยินยอมในการบันทึกเสียงใหม่เสมอ
+  updateConsentUI();
+}
+
+// =====================================================
+// RECORDING CONSENT
+// ผู้ป่วยสามารถเลือกไม่ยินยอมให้บันทึกเสียงได้
+// หากไม่ยินยอม ระบบจะไม่บันทึกข้อมูลของผู้ป่วยรายนี้เลย
+// เภสัชกรให้บริการซักประวัติ/จ่ายยาได้ตามปกตินอกระบบ
+// แล้วกดปุ่มเดียวเพื่อไปถามความยินยอมของผู้ป่วยรายถัดไป
+// =====================================================
+function setRecordingConsent(consentGiven) {
+  patientData.consent = !!consentGiven;
+  patientData.consentTimestamp = new Date().toISOString();
+  updateConsentUI();
+}
+
+function reopenConsentPanel() {
+  userRequestedStop = true;
+  manualStopRequested = false;
+  try { if (recognition && isListening) recognition.stop(); } catch (e) {}
+  patientData.consent = null;
+  updateConsentUI();
+}
+
+function updateConsentUI() {
+  const panel = document.getElementById("consentPanel");
+  const statusBar = document.getElementById("consentStatusBar");
+  const statusText = document.getElementById("consentStatusText");
+  const workArea = document.getElementById("historyWorkArea");
+  const noConsentPanel = document.getElementById("noConsentPanel");
+
+  if (!patientData || patientData.consent === null || patientData.consent === undefined) {
+    if (panel) panel.classList.remove("hidden");
+    if (statusBar) statusBar.classList.add("hidden");
+    if (workArea) workArea.classList.add("hidden");
+    if (noConsentPanel) noConsentPanel.classList.add("hidden");
+    return;
+  }
+
+  if (panel) panel.classList.add("hidden");
+  if (statusBar) statusBar.classList.remove("hidden");
+
+  if (patientData.consent === true) {
+    if (statusText) statusText.innerText = "✅ ผู้ป่วยยินยอมให้บันทึกเสียง";
+    if (workArea) workArea.classList.remove("hidden");
+    if (noConsentPanel) noConsentPanel.classList.add("hidden");
+  } else {
+    if (statusText) statusText.innerText = "🚫 ผู้ป่วยไม่ยินยอมให้บันทึกเสียง — ไม่มีการบันทึกข้อมูลรายนี้";
+    if (workArea) workArea.classList.add("hidden");
+    if (noConsentPanel) noConsentPanel.classList.remove("hidden");
+  }
+}
+
+function finishNoConsentService() {
+  const confirmed = confirm(
+    "ยืนยันเสร็จสิ้นการให้บริการผู้ป่วยรายนี้ใช่หรือไม่?\n\n" +
+    "(ผู้ป่วยไม่ยินยอมให้บันทึกเสียง ระบบจะไม่บันทึกข้อมูลของผู้ป่วยรายนี้)"
+  );
+  if (!confirmed) return;
+
+  resetPatientSession();
+  switchTab(1);
+  window.scrollTo({ top: 0, behavior: "smooth" });
 }
 
 function openDrugView() {
